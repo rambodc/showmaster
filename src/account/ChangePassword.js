@@ -1,21 +1,13 @@
-// src/ChangePassword.js
-import React, { useCallback } from 'react';
-import TopBar from '../components/TopBar';
-import { useNavigate } from 'react-router-dom';
-import layoutStyles from '../styles/layout.module.css';
+import React from 'react';
+import AppShell from '../components/AppShell';
 
 export default function ChangePassword() {
-  const navigate = useNavigate();
-  const handleBack = useCallback(() => {
-    if (window.history.length > 2) navigate(-1); else navigate('/home');
-  }, [navigate]);
   return (
-    <div className={layoutStyles.detailPage}>
-      <TopBar variant="back" backLabel="Back" onBack={handleBack} />
-      <div style={{ maxWidth: 800, width: '100%', margin: '80px auto', padding: '0 16px' }}>
+    <AppShell title="Change Password">
+      <div style={{ maxWidth: 800, width: '100%', margin: '0 auto', padding: '0 16px' }}>
         <h1>Change Password</h1>
         <p style={{ color: '#4b5563' }}>This page will let you update your password. Coming soon.</p>
       </div>
-    </div>
+    </AppShell>
   );
 }

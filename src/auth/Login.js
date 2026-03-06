@@ -5,11 +5,6 @@ import { auth } from '../firebase';
 import './Auth.css';
 
 function Login() {
-  const isPortrait = typeof window !== 'undefined'
-    ? window.matchMedia('(orientation: portrait)').matches
-    : false;
-  const bgUrl = `${process.env.PUBLIC_URL}/assets/${isPortrait ? 'auth-portrait.png' : 'auth-landscape.png'}`;
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,15 +24,7 @@ function Login() {
   };
 
   return (
-    <div
-      className="auth-container"
-      style={{
-        backgroundImage: `url(${bgUrl})`,
-        backgroundPosition: 'center',
-        backgroundSize: 'cover',
-        backgroundRepeat: 'no-repeat',
-      }}
-    >
+    <div className="auth-container">
       <form className="auth-box" onSubmit={handleLogin}>
         <h1>Showmaster</h1>
         <h2>Login</h2>

@@ -1,29 +1,25 @@
 import React from 'react';
-import TopBar from '../components/TopBar';
-import layoutStyles from '../styles/layout.module.css';
+import AppShell from '../components/AppShell';
 
 const updates = [
-  { id: 1, title: 'Show access control', detail: 'Platform admins can add show members by email and manage jobs.', time: 'Today' },
-  { id: 2, title: 'Jobs module', detail: 'Create and view jobs within shows with status tags.', time: 'Yesterday' },
-  { id: 3, title: 'Profile page', detail: 'See your name, email, and UID.', time: 'This week' },
+  { id: 1, title: 'Responsive app shell', detail: 'Desktop now uses a sidebar and mobile uses a top navigation bar.', time: 'Today' },
+  { id: 2, title: 'Auth pages simplified', detail: 'Sign in and sign up now load without background images.', time: 'Today' },
+  { id: 3, title: 'Clean base reset', detail: 'Removed legacy scaffolding for a fresh start.', time: 'Today' },
 ];
 
 export default function Updates() {
   return (
-    <div className={layoutStyles.pageShell} style={{ minHeight: '100vh' }}>
-      <TopBar variant="back" backLabel="Back" onBack={() => window.history.back()} />
-
+    <AppShell title="Updates">
       <div
         style={{
-          maxWidth: 520,
-          margin: '90px auto 60px',
-          padding: '0 16px',
+          maxWidth: 700,
+          margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
         }}
       >
-        <h1 style={{ textAlign: 'center', margin: '0 0 10px', fontSize: 26 }}>Updates</h1>
+        <h2 style={{ margin: '0 0 6px' }}>Updates</h2>
         {updates.map((item) => (
           <div
             key={item.id}
@@ -31,13 +27,14 @@ export default function Updates() {
               background: '#fff',
               borderRadius: 16,
               padding: 16,
+              border: '1px solid #e2e8f0',
               boxShadow: '0 12px 30px rgba(15,23,42,0.08)',
               display: 'flex',
               flexDirection: 'column',
               gap: 6,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
               <strong style={{ fontSize: 16 }}>{item.title}</strong>
               <span style={{ color: '#94a3b8', fontSize: 12 }}>{item.time}</span>
             </div>
@@ -45,6 +42,6 @@ export default function Updates() {
           </div>
         ))}
       </div>
-    </div>
+    </AppShell>
   );
 }

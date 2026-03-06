@@ -8,9 +8,8 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db, functions } from './firebase';
+import { auth, db } from './firebase';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
 
 // Public pages
 import LandingPage from './landing/LandingPage';
@@ -20,10 +19,6 @@ import ForgotPassword from './auth/ForgotPassword';
 
 // Protected pages
 import Home from './home/Home';
-import ShowDetail from './show/ShowDetail';
-import CreateShow from './create-show/CreateShow';
-import CreateJob from './job/CreateJob';
-import JobDetail from './job/JobDetail';
 import Account from './account';
 import ChangeEmail from './account/ChangeEmail';
 import ChangePassword from './account/ChangePassword';
@@ -37,6 +32,22 @@ import ProtectedRoute from './ProtectedRoute';
 
 // App-wide user context (used by Home, etc.)
 export const UserContext = createContext(null);
+
+const normalizeUsername = (value) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, '')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24);
+
+const deriveUsername = (data, user) => {
+  const existing = typeof data.username === 'string' && data.username.trim();
+  if (existing) return existing.trim();
+  const emailPart = (user?.email || '').split('@')[0] || '';
+  const candidate = normalizeUsername(emailPart || user?.uid || 'user');
+  if (candidate && candidate.length >= 3) return candidate;
+  return `user_${(user?.uid || '').slice(0, 6) || Math.floor(Math.random() * 9999)}`;
+};
 
 function AppRoutes({ user }) {
   return (
@@ -55,38 +66,6 @@ function AppRoutes({ user }) {
           element={
             <ProtectedRoute>
               <Home />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/create-show"
-          element={
-            <ProtectedRoute>
-              <CreateShow />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/show/:showId/create-job"
-          element={
-            <ProtectedRoute>
-              <CreateJob />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/show/:showId"
-          element={
-            <ProtectedRoute>
-              <ShowDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/show/:showId/job/:jobId"
-          element={
-            <ProtectedRoute>
-              <JobDetail />
             </ProtectedRoute>
           }
         />
@@ -169,24 +148,7 @@ function App() {
   const [appUser, setAppUser] = useState(null);                // canonical /users/{uid} doc
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [checkingProfile, setCheckingProfile] = useState(true);
-  const ensureStripeCustomerPromiseRef = useRef(null);
   const profileUnsubRef = useRef(null);
-
-  const normalizeUsername = (value) =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9_]+/g, '')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 24);
-
-  const deriveUsername = (data, user) => {
-    const existing = typeof data.username === 'string' && data.username.trim();
-    if (existing) return existing.trim();
-    const emailPart = (user?.email || '').split('@')[0] || '';
-    const candidate = normalizeUsername(emailPart || user?.uid || 'user');
-    if (candidate && candidate.length >= 3) return candidate;
-    return `user_${(user?.uid || '').slice(0, 6) || Math.floor(Math.random() * 9999)}`;
-  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -287,35 +249,6 @@ function App() {
       unsub();
     };
   }, []);
-
-  useEffect(() => {
-    if (!appUser?.id) return;
-    if (appUser?.stripeCustomerId) return;
-
-    if (ensureStripeCustomerPromiseRef.current) return;
-
-    const ensureCallable = httpsCallable(functions, 'ensureStripeCustomer');
-    const payload = {
-      email: appUser.email || '',
-      name: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim(),
-    };
-
-    ensureStripeCustomerPromiseRef.current = ensureCallable(payload)
-      .then((result) => {
-        const stripeCustomerId = result?.data?.stripeCustomerId;
-        if (stripeCustomerId) {
-          setAppUser((prev) =>
-            prev ? { ...prev, stripeCustomerId } : prev
-          );
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to ensure Stripe customer:', err);
-      })
-      .finally(() => {
-        ensureStripeCustomerPromiseRef.current = null;
-      });
-  }, [appUser, setAppUser]);
 
   if (checkingAuth || checkingProfile) return null; // could render a loader if you prefer
 

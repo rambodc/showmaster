@@ -3,7 +3,7 @@
     "origin": [
       "https://razz6-92831.web.app",
       "https://razz6-92831.firebaseapp.com",
-      "https://dev.razzberry.ai",
+      "https://dev.showmaster.ai",
       "http://localhost:3000",
       "http://127.0.0.1:3000",
       "http://localhost:5000",
@@ -26,4 +26,3 @@
     "maxAgeSeconds": 3600
   }
 ]
-

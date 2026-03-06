@@ -1,11 +1,10 @@
 import React, { useContext, useRef, useState } from 'react';
-import TopBar from '../components/TopBar';
-import layoutStyles from '../styles/layout.module.css';
 import { UserContext } from '../App';
 import { FiUser, FiMail, FiHash } from 'react-icons/fi';
 import { storage, db } from '../firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
+import AppShell from '../components/AppShell';
 
 export default function Profile() {
   const appUser = useContext(UserContext);
@@ -60,20 +59,17 @@ export default function Profile() {
   };
 
   return (
-    <div className={layoutStyles.pageShell} style={{ minHeight: '100vh' }}>
-      <TopBar variant="back" backLabel="Back" onBack={() => window.history.back()} />
-
+    <AppShell title="Profile">
       <div
         style={{
           maxWidth: 520,
-          margin: '90px auto 60px',
-          padding: '0 16px',
+          margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
         }}
       >
-        <h1 style={{ textAlign: 'center', margin: '0 0 8px', fontSize: 26 }}>Profile</h1>
+        <h2 style={{ textAlign: 'center', margin: '0 0 8px', fontSize: 26 }}>Profile</h2>
         <div
           style={{
             background: '#fff',
@@ -157,6 +153,6 @@ export default function Profile() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

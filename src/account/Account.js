@@ -1,7 +1,5 @@
-// src/account/Account.js
 import React from 'react';
-import TopBar from '../components/TopBar';
-import layoutStyles from '../styles/layout.module.css';
+import AppShell from '../components/AppShell';
 import styles from './Account.module.css';
 import { useNavigate } from 'react-router-dom';
 import { FaChevronRight, FaEnvelope, FaKey, FaUserTag } from 'react-icons/fa';
@@ -26,9 +24,7 @@ export default function Account() {
   const navigate = useNavigate();
 
   return (
-    <div className={layoutStyles.detailPage}>
-      <TopBar variant="back" backLabel="Back" onBack={() => (window.history.length > 2 ? navigate(-1) : navigate('/more'))} />
-
+    <AppShell title="Account">
       <div className={styles.pageShell}>
         <div className={styles.pageInner}>
           <h1 style={{ margin: '0 0 20px', textAlign: 'center' }}>Account</h1>
@@ -39,6 +35,6 @@ export default function Account() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

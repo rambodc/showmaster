@@ -1,0 +1,119 @@
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  background: #f6f8fb;
+  color: #0f172a;
+}
+
+.app-shell-sidebar {
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  padding: 28px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.app-shell-brand {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
+  padding: 0 8px;
+}
+
+.app-shell-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-shell-content {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 20px 28px;
+}
+
+.app-shell-mobile-topbar {
+  display: none;
+}
+
+.app-shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-shell-nav-compact {
+  flex-direction: row;
+  justify-content: center;
+  gap: 6px;
+}
+
+.app-shell-nav-item {
+  border: 0;
+  background: transparent;
+  color: #334155;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 10px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-shell-nav-item.active {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.app-shell-nav-compact .app-shell-nav-item {
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  min-width: 66px;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    display: block;
+  }
+
+  .app-shell-sidebar {
+    display: none;
+  }
+
+  .app-shell-mobile-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.97);
+    border-bottom: 1px solid #e2e8f0;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 10px 12px 12px;
+  }
+
+  .app-shell-mobile-topbar h1 {
+    font-size: 1rem;
+    margin: 0;
+    text-align: center;
+  }
+
+  .app-shell-content {
+    padding-top: 104px;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 18px;
+  }
+}

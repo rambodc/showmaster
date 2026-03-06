@@ -1,9 +1,7 @@
-// src/account/EditUsername.js
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { doc, getDoc, serverTimestamp, getDocs, query, where, collection, limit, setDoc } from 'firebase/firestore';
-import TopBar from '../components/TopBar';
-import layoutStyles from '../styles/layout.module.css';
+import AppShell from '../components/AppShell';
 import styles from './EditUsername.module.css';
 import { db } from '../firebase';
 import { UserContext } from '../App';
@@ -15,7 +13,6 @@ export default function EditUsername() {
   const fromSignup = location.state?.fromSignup;
 
   const [username, setUsername] = useState('');
-  const [initialNormalized, setInitialNormalized] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -45,10 +42,8 @@ export default function EditUsername() {
           const data = snap.data() || {};
           const currentUsername = data.username || '';
           setUsername(currentUsername || '');
-          setInitialNormalized(data.usernameNormalized || '');
         } else {
           setUsername('');
-          setInitialNormalized('');
         }
       } catch (err) {
         if (!active) return;
@@ -99,7 +94,6 @@ export default function EditUsername() {
         { merge: true }
       );
 
-      setInitialNormalized(normalized);
       setStatus('Saved!');
       navigate('/more', { replace: true });
     } catch (err) {
@@ -122,12 +116,8 @@ export default function EditUsername() {
     }
   };
 
-  const topBarVariant = fromSignup ? undefined : 'back';
-
   return (
-    <div className={layoutStyles.homeContainer} style={{ paddingBottom: 0 }}>
-      <TopBar variant={topBarVariant} hideLeft={fromSignup} backLabel="Back" onBack={fromSignup ? undefined : handleCancel} />
-
+    <AppShell title={fromSignup ? 'Choose Username' : 'Edit Username'}>
       <div className={styles.pageShell}>
         <div className={styles.card}>
           <div className={styles.header}>
@@ -175,6 +165,6 @@ export default function EditUsername() {
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
