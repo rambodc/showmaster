@@ -17,7 +17,7 @@ function Login() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/home'); // ✅ redirect to home
+      navigate('/shows');
     } catch (err) {
       setError(err.message);
     }

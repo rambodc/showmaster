@@ -1,10 +1,10 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiUser, FiBell, FiMoreHorizontal } from 'react-icons/fi';
+import { FiGrid, FiUser, FiBell, FiMoreHorizontal } from 'react-icons/fi';
 import './AppShell.css';
 
 const navItems = [
-  { label: 'Home', to: '/home', icon: FiHome, matches: ['/home'] },
+  { label: 'Shows', to: '/shows', icon: FiGrid, matches: ['/home', '/shows'] },
   { label: 'Profile', to: '/profile', icon: FiUser, matches: ['/profile'] },
   { label: 'Updates', to: '/updates', icon: FiBell, matches: ['/updates'] },
   { label: 'More', to: '/more', icon: FiMoreHorizontal, matches: ['/more', '/account', '/username'] },

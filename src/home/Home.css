@@ -1,84 +1,81 @@
-.home-hero {
-  background: linear-gradient(130deg, #ffffff, #f0f9ff);
-  border: 1px solid #dbeafe;
-  border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
-}
-
-.home-eyebrow {
-  margin: 0;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #0369a1;
-  font-weight: 700;
-}
-
-.home-hero h2 {
-  margin: 8px 0 6px;
-  font-size: 1.9rem;
-}
-
-.home-hero p {
-  margin: 0;
-  max-width: 700px;
-  color: #334155;
-}
-
-.home-grid {
-  margin-top: 16px;
+.shows-layout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1.1fr 1.4fr;
   gap: 14px;
 }
 
-.home-card {
-  background: #ffffff;
+.shows-create-card,
+.shows-list-card {
+  background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  padding: 16px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
 }
 
-.home-card-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: #e0f2fe;
+.shows-eyebrow {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: #0369a1;
+  font-weight: 700;
 }
 
-.home-card h3 {
-  margin: 0;
+.shows-create-card h2 {
+  margin: 8px 0 12px;
 }
 
-.home-card p {
-  margin: 0;
-  color: #475569;
+.shows-form {
+  display: grid;
+  gap: 8px;
 }
 
-.home-card button {
-  margin-top: auto;
+.shows-form button {
   border: 0;
   border-radius: 10px;
-  background: #0ea5e9;
+  padding: 10px 12px;
+  background: #0284c7;
   color: #fff;
   font-weight: 700;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
+}
+
+.shows-grid {
+  display: grid;
   gap: 8px;
-  padding: 10px 12px;
+}
+
+.show-row {
+  width: 100%;
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.show-row p {
+  margin: 4px 0 0;
+  color: #64748b;
+}
+
+.show-row span {
+  text-transform: capitalize;
+  color: #0369a1;
+  font-weight: 700;
+}
+
+.shows-muted {
+  color: #64748b;
 }
 
 @media (max-width: 960px) {
-  .home-hero h2 {
-    font-size: 1.45rem;
+  .shows-layout {
+    grid-template-columns: 1fr;
   }
 }

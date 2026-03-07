@@ -26,6 +26,10 @@ import EditUsername from './account/EditUsername';
 import More from './more/More';
 import Profile from './profile/Profile';
 import Updates from './updates/Updates';
+import ShowWorkspace from './shows/ShowWorkspace';
+import ShowMembers from './shows/ShowMembers';
+import ShowModules from './shows/ShowModules';
+import ShowInventory from './shows/ShowInventory';
 
 // Route guard
 import ProtectedRoute from './ProtectedRoute';
@@ -55,9 +59,9 @@ function AppRoutes({ user }) {
       <ScrollRestoration />
       <Routes>
         {/* Public */}
-        <Route path="/" element={user ? <Navigate to="/home" /> : <LandingPage />} />
-        <Route path="/signin" element={!user ? <Login /> : <Navigate to="/home" />} />
-        <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/home" />} />
+        <Route path="/" element={user ? <Navigate to="/shows" /> : <LandingPage />} />
+        <Route path="/signin" element={!user ? <Login /> : <Navigate to="/shows" />} />
+        <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/shows" />} />
         <Route path="/forgot" element={<ForgotPassword />} />
 
         {/* Protected */}
@@ -65,7 +69,47 @@ function AppRoutes({ user }) {
           path="/home"
           element={
             <ProtectedRoute>
+              <Navigate to="/shows" replace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows"
+          element={
+            <ProtectedRoute>
               <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId"
+          element={
+            <ProtectedRoute>
+              <ShowWorkspace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/members"
+          element={
+            <ProtectedRoute>
+              <ShowMembers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/modules"
+          element={
+            <ProtectedRoute>
+              <ShowModules />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/inventory"
+          element={
+            <ProtectedRoute>
+              <ShowInventory />
             </ProtectedRoute>
           }
         />
@@ -126,7 +170,7 @@ function AppRoutes({ user }) {
           }
         />
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to={user ? '/home' : '/'} />} />
+        <Route path="*" element={<Navigate to={user ? '/shows' : '/'} />} />
       </Routes>
     </>
   );
