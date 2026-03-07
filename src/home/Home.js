@@ -99,7 +99,12 @@ function Home() {
   };
 
   return (
-    <AppShell title="Shows">
+    <AppShell
+      title="Shows"
+      titlePath="shows"
+      showMenuButton={false}
+      showSettingsButton
+    >
       <div className="shows-layout">
         <section className="shows-create-card">
           <p className="shows-eyebrow">Create Show</p>

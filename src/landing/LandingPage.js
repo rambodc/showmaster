@@ -12,11 +12,10 @@ function LandingPage() {
         <h2>Music. Culture. Identity.</h2>
 
         <p style={{ textAlign: 'center', fontWeight: 300 }}>
-          Connect with your music community and own your voice.
+          Internal show operations platform.
         </p>
 
         <button onClick={() => navigate('/signin')}>Sign In</button>
-        <button onClick={() => navigate('/signup')}>Create Account</button>
       </div>
     </div>
   );

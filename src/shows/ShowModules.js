@@ -5,7 +5,7 @@ import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
 import { db } from '../firebase';
-import { useShowAccess } from '../services/showRoles';
+import { getVisibleModulesForMember, useShowAccess } from '../services/showRoles';
 
 const defaultModules = [
   { key: 'security', name: 'Security', enabled: false },
@@ -17,7 +17,7 @@ const defaultModules = [
 export default function ShowModules() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
-  const { show } = useShowAccess(showId, appUser?.id);
+  const { show, role, member } = useShowAccess(showId, appUser?.id);
   const [modulesById, setModulesById] = useState({});
 
   useEffect(() => {
@@ -56,6 +56,16 @@ export default function ShowModules() {
   }, [showId]);
 
   const modules = useMemo(() => defaultModules.map((m) => modulesById[m.key] || m), [modulesById]);
+  const visibleModules = getVisibleModulesForMember({ modules, role, member });
+  const showSlug = (show?.name || 'show').toLowerCase().replace(/\s+/g, '-');
+  const navItems = visibleModules.map((m) => {
+    const key = m.key || m.id;
+    return {
+      label: m.name || key,
+      to: key === 'inventory' ? `/shows/${showId}/inventory` : `/shows/${showId}/module/${key}`,
+      matches: [key === 'inventory' ? `/shows/${showId}/inventory` : `/shows/${showId}/module/${key}`],
+    };
+  });
 
   const toggle = async (mod) => {
     await updateDoc(doc(db, 'shows', showId, 'modules', mod.key), {
@@ -66,11 +76,17 @@ export default function ShowModules() {
 
   return (
     <ShowRoute permission="manage_modules">
-      <AppShell title="Modules">
+      <AppShell
+        title="Modules"
+        titlePath={`shows/${showSlug}/modules`}
+        navItems={navItems}
+        showMenuButton
+        showSettingsButton
+      >
         <div style={{ display: 'grid', gap: 12 }}>
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 16 }}>
             <h2 style={{ marginTop: 0 }}>Modules for {show?.name || 'this show'}</h2>
-            <p style={{ color: '#475569' }}>Enable only the tools you need for this show.</p>
+            <p style={{ color: '#475569' }}>Enable only the tools this show needs.</p>
             <Link to={`/shows/${showId}`}>Back to workspace</Link>
           </div>
           {modules.map((m) => (

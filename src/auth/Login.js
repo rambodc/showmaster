@@ -53,9 +53,6 @@ function Login() {
           Forgot Password?
         </p>
 
-        <p className="link" onClick={() => navigate('/signup')}>
-          Create Account
-        </p>
       </form>
     </div>
   );

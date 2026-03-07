@@ -16,6 +16,13 @@ const PERMISSIONS = {
   manage_inventory: [SHOW_ROLE.OWNER, SHOW_ROLE.ADMIN, SHOW_ROLE.MEMBER],
 };
 
+export function getVisibleModulesForMember({ modules, role, member }) {
+  const enabled = (modules || []).filter((m) => m.enabled);
+  if (role === SHOW_ROLE.OWNER || role === SHOW_ROLE.ADMIN) return enabled;
+  const access = member?.moduleAccess || {};
+  return enabled.filter((m) => access[m.key || m.id]);
+}
+
 export function canShowRole(role, permission) {
   return (PERMISSIONS[permission] || []).includes(role);
 }

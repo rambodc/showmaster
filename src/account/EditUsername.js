@@ -95,7 +95,7 @@ export default function EditUsername() {
       );
 
       setStatus('Saved!');
-      navigate('/more', { replace: true });
+      navigate('/settings', { replace: true });
     } catch (err) {
       console.error('save username error:', err);
       setError(err?.message || 'Unable to save username right now.');
@@ -106,7 +106,7 @@ export default function EditUsername() {
 
   const handleCancel = () => {
     if (fromSignup) {
-      navigate('/more', { replace: true });
+      navigate('/settings', { replace: true });
       return;
     }
     if (window.history.length > 2) {

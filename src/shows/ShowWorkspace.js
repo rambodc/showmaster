@@ -5,7 +5,7 @@ import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { db } from '../firebase';
 import { UserContext } from '../App';
-import { SHOW_ROLE, useShowAccess } from '../services/showRoles';
+import { getVisibleModulesForMember, SHOW_ROLE, useShowAccess } from '../services/showRoles';
 
 const moduleMeta = {
   security: { label: 'Security' },
@@ -14,11 +14,16 @@ const moduleMeta = {
   artists: { label: 'Artist Stuff' },
 };
 
+const moduleRoute = (showId, moduleKey) => {
+  if (moduleKey === 'inventory') return `/shows/${showId}/inventory`;
+  return `/shows/${showId}/module/${moduleKey}`;
+};
+
 export default function ShowWorkspace() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
   const navigate = useNavigate();
-  const { loading, show, role } = useShowAccess(showId, appUser?.id);
+  const { loading, show, role, member } = useShowAccess(showId, appUser?.id);
   const [modules, setModules] = useState([]);
 
   useEffect(() => {
@@ -31,9 +36,20 @@ export default function ShowWorkspace() {
     return () => unsub();
   }, [showId]);
 
-  const enabledModules = useMemo(
-    () => modules.filter((m) => m.enabled),
-    [modules]
+  const enabledModules = useMemo(() => modules.filter((m) => m.enabled), [modules]);
+  const visibleModules = useMemo(
+    () => getVisibleModulesForMember({ modules, role, member }),
+    [member, modules, role]
+  );
+  const showSlug = (show?.name || 'show').toLowerCase().replace(/\s+/g, '-');
+  const navItems = useMemo(
+    () =>
+      visibleModules.map((m) => ({
+        label: moduleMeta[m.key || m.id]?.label || m.name || m.key || m.id,
+        to: moduleRoute(showId, m.key || m.id),
+        matches: [moduleRoute(showId, m.key || m.id)],
+      })),
+    [showId, visibleModules]
   );
 
   if (loading) {
@@ -42,7 +58,13 @@ export default function ShowWorkspace() {
 
   return (
     <ShowRoute permission="view_show">
-      <AppShell title={show?.name || 'Show'}>
+      <AppShell
+        title={show?.name || 'Show'}
+        titlePath={`shows/${showSlug}/workspace`}
+        navItems={navItems}
+        showMenuButton
+        showSettingsButton
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16 }}>
             <p style={{ margin: 0, color: '#64748b', fontWeight: 600 }}>Show Workspace</p>
@@ -65,7 +87,9 @@ export default function ShowWorkspace() {
                 <div key={mod.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 16 }}>
                   <h3 style={{ marginTop: 0 }}>{moduleMeta[mod.id]?.label || mod.name || mod.id}</h3>
                   <p style={{ color: '#475569' }}>Enabled module in this show.</p>
-                  {mod.id === 'inventory' ? <Link to={`/shows/${showId}/inventory`}>Open Inventory</Link> : <span style={{ color: '#94a3b8' }}>Module view coming next</span>}
+                  <Link to={moduleRoute(showId, mod.id || mod.key)}>
+                    Open {(moduleMeta[mod.id || mod.key]?.label || mod.name || mod.id || mod.key)}
+                  </Link>
                 </div>
               ))
             )}

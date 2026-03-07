@@ -14,7 +14,6 @@ import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/fires
 // Public pages
 import LandingPage from './landing/LandingPage';
 import Login from './auth/Login';
-import Signup from './auth/Signup';
 import ForgotPassword from './auth/ForgotPassword';
 
 // Protected pages
@@ -23,13 +22,14 @@ import Account from './account';
 import ChangeEmail from './account/ChangeEmail';
 import ChangePassword from './account/ChangePassword';
 import EditUsername from './account/EditUsername';
-import More from './more/More';
+import Settings from './settings/Settings';
 import Profile from './profile/Profile';
 import Updates from './updates/Updates';
 import ShowWorkspace from './shows/ShowWorkspace';
 import ShowMembers from './shows/ShowMembers';
 import ShowModules from './shows/ShowModules';
 import ShowInventory from './shows/ShowInventory';
+import ShowModulePage from './shows/ShowModulePage';
 
 // Route guard
 import ProtectedRoute from './ProtectedRoute';
@@ -61,7 +61,7 @@ function AppRoutes({ user }) {
         {/* Public */}
         <Route path="/" element={user ? <Navigate to="/shows" /> : <LandingPage />} />
         <Route path="/signin" element={!user ? <Login /> : <Navigate to="/shows" />} />
-        <Route path="/signup" element={!user ? <Signup /> : <Navigate to="/shows" />} />
+        <Route path="/signup" element={<Navigate to="/signin" replace />} />
         <Route path="/forgot" element={<ForgotPassword />} />
 
         {/* Protected */}
@@ -114,6 +114,14 @@ function AppRoutes({ user }) {
           }
         />
         <Route
+          path="/shows/:showId/module/:moduleKey"
+          element={
+            <ProtectedRoute>
+              <ShowModulePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/profile"
           element={
             <ProtectedRoute>
@@ -138,10 +146,18 @@ function AppRoutes({ user }) {
           }
         />
         <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/more"
           element={
             <ProtectedRoute>
-              <More />
+              <Navigate to="/settings" replace />
             </ProtectedRoute>
           }
         />

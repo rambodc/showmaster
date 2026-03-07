@@ -1,14 +1,20 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { FiLock, FiMail, FiLogOut, FiUser, FiHash } from 'react-icons/fi';
+import { signOut, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { deleteApp, initializeApp } from 'firebase/app';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { FiLock, FiMail, FiLogOut, FiUser, FiHash, FiUserPlus } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
-import { auth } from '../firebase';
+import app, { auth, db } from '../firebase';
 import { UserContext } from '../App';
 
-export default function More() {
+export default function Settings() {
   const navigate = useNavigate();
   const appUser = useContext(UserContext);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' });
+  const [adminMessage, setAdminMessage] = useState('');
+  const isInternalAdmin = appUser?.platformRole === 'admin';
 
   const handleLogout = async () => {
     try {
@@ -25,12 +31,63 @@ export default function More() {
     { label: 'Edit Username', icon: <FiUser />, onClick: () => navigate('/username') },
   ];
 
+  const onChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const createInternalUser = async (e) => {
+    e.preventDefault();
+    if (!isInternalAdmin) return;
+    setCreatingUser(true);
+    setAdminMessage('');
+
+    const secondaryName = `internal-user-${Date.now()}`;
+    const secondaryApp = initializeApp(app.options, secondaryName);
+    const secondaryAuth = getAuth(secondaryApp);
+
+    try {
+      const cred = await createUserWithEmailAndPassword(
+        secondaryAuth,
+        form.email.trim().toLowerCase(),
+        form.password
+      );
+      const created = cred.user;
+
+      await setDoc(
+        doc(db, 'users', created.uid),
+        {
+          uid: created.uid,
+          email: form.email.trim().toLowerCase(),
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          platformRole: 'user',
+          createdBy: appUser?.id || null,
+          primaryAuthUid: created.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setAdminMessage(`Created internal user: ${form.email.trim().toLowerCase()}`);
+      setForm({ firstName: '', lastName: '', email: '', password: '' });
+    } catch (err) {
+      setAdminMessage(err?.message || 'Failed to create internal user.');
+    } finally {
+      try {
+        await secondaryAuth.signOut();
+      } catch {}
+      await deleteApp(secondaryApp).catch(() => null);
+      setCreatingUser(false);
+    }
+  };
+
   return (
-    <AppShell title="More">
+    <AppShell title="Settings" titlePath="settings" showSettingsButton>
       <div
         style={{
           width: '100%',
-          maxWidth: 520,
+          maxWidth: 640,
           margin: '0 auto',
           background: '#fff',
           borderRadius: 18,
@@ -41,7 +98,7 @@ export default function More() {
           gap: 12,
         }}
       >
-        <h2 style={{ textAlign: 'center', margin: '0 0 6px', fontSize: 24 }}>More</h2>
+        <h2 style={{ textAlign: 'center', margin: '0 0 6px', fontSize: 24 }}>Settings</h2>
         <div
           style={{
             padding: '14px 16px',
@@ -118,6 +175,24 @@ export default function More() {
             <span>{item.label}</span>
           </button>
         ))}
+
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 14 }}>
+          <h3 style={{ margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FiUserPlus /> Internal User Creation
+          </h3>
+          {!isInternalAdmin ? (
+            <p style={{ margin: 0, color: '#64748b' }}>Only internal admins can create users.</p>
+          ) : (
+            <form onSubmit={createInternalUser} style={{ display: 'grid', gap: 8 }}>
+              <input value={form.firstName} onChange={(e) => onChange('firstName', e.target.value)} placeholder="First name" required />
+              <input value={form.lastName} onChange={(e) => onChange('lastName', e.target.value)} placeholder="Last name" required />
+              <input value={form.email} onChange={(e) => onChange('email', e.target.value)} placeholder="Email" type="email" required />
+              <input value={form.password} onChange={(e) => onChange('password', e.target.value)} placeholder="Temporary password" type="password" minLength={8} required />
+              <button type="submit" disabled={creatingUser}>{creatingUser ? 'Creating…' : 'Create Internal User'}</button>
+            </form>
+          )}
+          {adminMessage ? <p style={{ margin: '8px 0 0', color: '#0369a1' }}>{adminMessage}</p> : null}
+        </div>
 
         <button
           type="button"
