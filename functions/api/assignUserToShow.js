@@ -21,7 +21,7 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
 
   await db.collection('shows').doc(showId).collection('members').doc(userId).set({
     uid: userId,
-    email: user.email || null,
+    email: user.email ? String(user.email).toLowerCase() : null,
     displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || null,
     showRole,
     moduleAccess,

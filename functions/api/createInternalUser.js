@@ -10,7 +10,7 @@ export const createInternalUser = onCall({ region: 'us-central1' }, async (reque
   const email = String(request.data?.email || '').trim().toLowerCase();
   const tempPassword = String(request.data?.tempPassword || '').trim();
 
-  if (!firstName || !lastName || !email || tempPassword.length < 8) {
+  if (!firstName || !lastName || !email || tempPassword.length < 6) {
     throw new HttpsError('invalid-argument', 'Missing required fields.');
   }
 

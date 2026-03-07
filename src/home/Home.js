@@ -39,16 +39,44 @@ function Home() {
       return undefined;
     }
 
-    const q = query(collectionGroup(db, 'members'), where('uid', '==', appUser.id));
-    const unsub = onSnapshot(q, (snap) => {
-      const ids = snap.docs
-        .map((d) => d.ref.parent?.parent?.id)
-        .filter(Boolean);
-      setMemberShowIds(ids);
+    const identityCandidates = Array.from(
+      new Set(
+        [appUser.id, appUser.uid, appUser.primaryAuthUid]
+          .map((v) => String(v || '').trim())
+          .filter(Boolean)
+      )
+    );
+    const normalizedEmail = String(appUser.email || '').trim().toLowerCase();
+
+    const showIdSet = new Set();
+    const unsubs = [];
+
+    const pushSnapshotIds = (snap) => {
+      snap.docs.forEach((d) => {
+        const showId = d.ref.parent?.parent?.id;
+        if (showId) showIdSet.add(showId);
+      });
+      setMemberShowIds(Array.from(showIdSet));
+    };
+
+    identityCandidates.forEach((uidValue) => {
+      const q = query(collectionGroup(db, 'members'), where('uid', '==', uidValue));
+      unsubs.push(
+        onSnapshot(q, (snap) => pushSnapshotIds(snap))
+      );
     });
 
-    return () => unsub();
-  }, [appUser?.id]);
+    if (normalizedEmail) {
+      const q = query(collectionGroup(db, 'members'), where('email', '==', normalizedEmail));
+      unsubs.push(
+        onSnapshot(q, (snap) => pushSnapshotIds(snap))
+      );
+    }
+
+    return () => {
+      unsubs.forEach((fn) => fn());
+    };
+  }, [appUser?.email, appUser?.id, appUser?.primaryAuthUid, appUser?.uid]);
 
   const visibleShows = useMemo(() => {
     if (!appUser?.id) return [];

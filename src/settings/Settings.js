@@ -104,7 +104,7 @@ export default function Settings() {
                 <input value={form.firstName} onChange={(e) => onFormChange('firstName', e.target.value)} placeholder="First name" required />
                 <input value={form.lastName} onChange={(e) => onFormChange('lastName', e.target.value)} placeholder="Last name" required />
                 <input value={form.email} type="email" onChange={(e) => onFormChange('email', e.target.value)} placeholder="Email" required />
-                <input value={form.tempPassword} type="password" minLength={8} onChange={(e) => onFormChange('tempPassword', e.target.value)} placeholder="Temporary password" required />
+                <input value={form.tempPassword} type="password" minLength={6} onChange={(e) => onFormChange('tempPassword', e.target.value)} placeholder="Temporary password" required />
                 <button className="show-btn" type="submit" disabled={creatingUser}>{creatingUser ? 'Creating...' : 'Create Internal User'}</button>
               </form>
 
