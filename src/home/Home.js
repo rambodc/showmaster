@@ -10,7 +10,8 @@ const defaultModules = [
   { key: 'security', name: 'Security', enabled: false },
   { key: 'carps', name: 'Carps', enabled: false },
   { key: 'inventory', name: 'Inventory', enabled: true },
-  { key: 'artists', name: 'Artist Stuff', enabled: false },
+  { key: 'artists', name: 'Artists', enabled: false },
+  { key: 'ai3d', name: 'AI 3D Model', enabled: true },
 ];
 
 function Home() {
@@ -51,9 +52,10 @@ function Home() {
 
   const visibleShows = useMemo(() => {
     if (!appUser?.id) return [];
+    if (appUser?.systemRole === 'super_admin') return shows;
     const memberSet = new Set(memberShowIds);
     return shows.filter((show) => show.ownerId === appUser.id || memberSet.has(show.id));
-  }, [appUser?.id, memberShowIds, shows]);
+  }, [appUser?.id, appUser?.systemRole, memberShowIds, shows]);
 
   const createShow = async (e) => {
     e.preventDefault();
@@ -76,7 +78,14 @@ function Home() {
         uid: appUser.id,
         email: appUser.email || null,
         displayName: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || null,
-        role: 'owner',
+        showRole: 'show_admin',
+        moduleAccess: {
+          security: true,
+          carps: true,
+          inventory: true,
+          artists: true,
+          ai3d: true,
+        },
         createdAt: now,
         updatedAt: now,
       }, { merge: true });
@@ -92,7 +101,7 @@ function Home() {
 
       setName('');
       setDescription('');
-      navigate(`/shows/${showRef.id}`);
+      navigate(`/shows/${showRef.id}/workspace`);
     } finally {
       setSaving(false);
     }
@@ -133,7 +142,7 @@ function Home() {
           ) : (
             <div className="shows-grid">
               {visibleShows.map((show) => (
-                <button key={show.id} type="button" className="show-row" onClick={() => navigate(`/shows/${show.id}`)}>
+                <button key={show.id} type="button" className="show-row" onClick={() => navigate(`/shows/${show.id}/workspace`)}>
                   <div>
                     <strong>{show.name || 'Untitled Show'}</strong>
                     <p>{show.description || 'No description'}</p>

@@ -1,195 +1,186 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { Link, useParams } from 'react-router-dom';
+import React, { useContext, useMemo, useState } from 'react';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
-import { db } from '../firebase';
-import { getVisibleModulesForMember, SHOW_ROLE, useShowAccess } from '../services/showRoles';
+import { db, functions } from '../firebase';
+import { buildShowNavItems, buildShowPath, MODULE_KEYS, MODULE_META, normalizeModuleAccess, useShowContext } from '../services/accessPolicy';
+import useShowModules from './useShowModules';
+import './showPages.css';
 
 export default function ShowMembers() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
-  const { show, role: currentRole, member: currentMember } = useShowAccess(showId, appUser?.id);
+  const ctx = useShowContext({ showId, appUser });
+  const modules = useShowModules(showId);
 
   const [members, setMembers] = useState([]);
-  const [showModules, setShowModules] = useState([]);
-  const [uid, setUid] = useState('');
-  const [email, setEmail] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState(SHOW_ROLE.MEMBER);
-  const [newMemberAccess, setNewMemberAccess] = useState({});
+  const [queryText, setQueryText] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showRole, setShowRole] = useState('member');
+  const [newAccess, setNewAccess] = useState(normalizeModuleAccess({}));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!showId) return undefined;
     const q = query(collection(db, 'shows', showId, 'members'), orderBy('updatedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setMembers(list);
+      setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
   }, [showId]);
 
   useEffect(() => {
-    if (!showId) return undefined;
-    const q = query(collection(db, 'shows', showId, 'modules'), orderBy('updatedAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => m.enabled);
-      setShowModules(list);
+    const defaultAccess = {};
+    modules.forEach((m) => {
+      defaultAccess[m.key] = Boolean(m.enabled);
     });
-    return () => unsub();
-  }, [showId]);
+    setNewAccess(normalizeModuleAccess(defaultAccess));
+  }, [modules]);
 
-  useEffect(() => {
-    const defaults = {};
-    showModules.forEach((m) => {
-      defaults[m.key || m.id] = true;
-    });
-    setNewMemberAccess(defaults);
-  }, [showModules]);
+  const navItems = useMemo(
+    () => buildShowNavItems({ showId, modules, ctx }),
+    [ctx, modules, showId]
+  );
 
-  const validRoles = useMemo(() => Object.values(SHOW_ROLE), []);
-  const showSlug = (show?.name || 'show').toLowerCase().replace(/\s+/g, '-');
+  const searchUsers = async () => {
+    const fn = httpsCallable(functions, 'searchUsers');
+    const result = await fn({ query: queryText, limit: 12, showId });
+    setSearchResults(result.data?.users || []);
+  };
 
-  const visibleModules = getVisibleModulesForMember({ modules: showModules, role: currentRole, member: currentMember });
-  const navItems = visibleModules.map((m) => {
-    const key = m.key || m.id;
-    return {
-      label: m.name || key,
-      to: key === 'inventory' ? `/shows/${showId}/inventory` : `/shows/${showId}/module/${key}`,
-      matches: [key === 'inventory' ? `/shows/${showId}/inventory` : `/shows/${showId}/module/${key}`],
-    };
-  });
-
-  const addMember = async (e) => {
-    e.preventDefault();
-    if (!uid.trim()) return;
+  const assignUser = async () => {
+    if (!selectedUser?.uid) return;
     setSaving(true);
     try {
-      await setDoc(
-        doc(db, 'shows', showId, 'members', uid.trim()),
-        {
-          uid: uid.trim(),
-          email: email.trim().toLowerCase() || null,
-          displayName: displayName.trim() || null,
-          role,
-          moduleAccess: newMemberAccess,
-          invitedBy: appUser?.id || null,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-      setUid('');
-      setEmail('');
-      setDisplayName('');
-      setRole(SHOW_ROLE.MEMBER);
+      const fn = httpsCallable(functions, 'assignUserToShow');
+      await fn({
+        showId,
+        userId: selectedUser.uid,
+        showRole,
+        moduleAccess: normalizeModuleAccess(newAccess),
+      });
+      setSelectedUser(null);
+      setQueryText('');
+      setSearchResults([]);
     } finally {
       setSaving(false);
     }
   };
 
-  const changeRole = async (memberId, nextRole) => {
-    if (!validRoles.includes(nextRole)) return;
-    await updateDoc(doc(db, 'shows', showId, 'members', memberId), {
-      role: nextRole,
-      updatedAt: serverTimestamp(),
-    });
-  };
-
-  const toggleExistingMemberModule = async (member, moduleKey) => {
-    const current = Boolean(member?.moduleAccess?.[moduleKey]);
-    await updateDoc(doc(db, 'shows', showId, 'members', member.id), {
-      [`moduleAccess.${moduleKey}`]: !current,
-      updatedAt: serverTimestamp(),
-    });
-  };
-
-  const removeMember = async (memberId) => {
-    if (show?.ownerId === memberId) return;
-    await deleteDoc(doc(db, 'shows', showId, 'members', memberId));
+  const updateMember = async (member, updates) => {
+    const fn = httpsCallable(functions, 'updateShowMemberAccess');
+    await fn({ showId, userId: member.id, ...updates });
   };
 
   return (
     <ShowRoute permission="manage_members">
       <AppShell
-        title="Members"
-        titlePath={`shows/${showSlug}/members`}
+        title="Access"
+        titlePath={buildShowPath(ctx.show?.name, 'access')}
         navItems={navItems}
         showMenuButton
         showSettingsButton
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 16 }}>
-            <h2 style={{ marginTop: 0 }}>Show Members</h2>
-            <p style={{ marginTop: 0, color: '#475569' }}>Assign role and module access per user.</p>
-            <Link to={`/shows/${showId}`}>Back to workspace</Link>
-          </div>
+        <div className="show-page-stack">
+          <section className="show-hero-card">
+            <span className="show-chip">Access Control</span>
+            <h2 className="show-title">Members and Module Access</h2>
+            <p className="show-subtitle">Assign users to this show and toggle module visibility.</p>
+          </section>
 
-          <form onSubmit={addMember} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 16, display: 'grid', gap: 10 }}>
-            <h3 style={{ margin: 0 }}>Add or update member</h3>
-            <input value={uid} onChange={(e) => setUid(e.target.value)} placeholder="User UID (required)" required />
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (optional)" />
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name (optional)" />
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
-              {validRoles.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 10 }}>
-              <strong>Module access</strong>
-              <div style={{ marginTop: 8, display: 'grid', gap: 6 }}>
-                {showModules.map((m) => {
-                  const key = m.key || m.id;
-                  return (
-                    <label key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>{m.name || key}</span>
+          <section className="show-card" style={{ padding: 16 }}>
+            <h3 style={{ marginTop: 0 }}>Add existing user to show</h3>
+            <div className="form-grid">
+              <input
+                value={queryText}
+                onChange={(e) => setQueryText(e.target.value)}
+                placeholder="Search by name, email, or uid"
+              />
+              <button className="show-btn-outline" type="button" onClick={searchUsers}>Search Users</button>
+            </div>
+            <div className="members-grid" style={{ marginTop: 10 }}>
+              {searchResults.map((u) => (
+                <button
+                  key={u.uid}
+                  type="button"
+                  className="show-btn-outline"
+                  onClick={() => setSelectedUser(u)}
+                  style={{ textAlign: 'left' }}
+                >
+                  {(u.firstName || '') + ' ' + (u.lastName || '')} - {u.email}
+                </button>
+              ))}
+            </div>
+
+            {selectedUser ? (
+              <div className="form-grid" style={{ marginTop: 12 }}>
+                <p className="info-note">Selected: {selectedUser.email}</p>
+                <select value={showRole} onChange={(e) => setShowRole(e.target.value)}>
+                  <option value="member">member</option>
+                  <option value="show_admin">show_admin</option>
+                </select>
+                <div className="show-card" style={{ padding: 12 }}>
+                  {MODULE_KEYS.map((key) => (
+                    <label className="switch-row" key={key}>
+                      <span>{MODULE_META[key]?.label || key}</span>
                       <input
                         type="checkbox"
-                        checked={Boolean(newMemberAccess[key])}
-                        onChange={() => setNewMemberAccess((prev) => ({ ...prev, [key]: !prev[key] }))}
+                        checked={Boolean(newAccess[key])}
+                        onChange={() => setNewAccess((prev) => ({ ...prev, [key]: !prev[key] }))}
                       />
                     </label>
-                  );
-                })}
+                  ))}
+                </div>
+                <button className="show-btn" type="button" onClick={assignUser} disabled={saving}>
+                  {saving ? 'Assigning...' : 'Assign User to Show'}
+                </button>
               </div>
-            </div>
-            <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save Member'}</button>
-          </form>
+            ) : null}
+          </section>
 
-          <div style={{ display: 'grid', gap: 8 }}>
+          <section className="members-grid">
             {members.map((m) => (
-              <div key={m.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 12, display: 'grid', gap: 8 }}>
+              <article className="member-card" key={m.id}>
                 <div>
                   <strong>{m.displayName || m.email || m.uid || m.id}</strong>
-                  <p style={{ margin: '4px 0 0', color: '#64748b' }}>{m.email || 'No email'}</p>
+                  <p className="info-note">{m.email || m.uid}</p>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <select value={m.role || SHOW_ROLE.MEMBER} onChange={(e) => changeRole(m.id, e.target.value)}>
-                    {validRoles.map((r) => <option key={r} value={r}>{r}</option>)}
+                <div className="switch-row">
+                  <span>Show Role</span>
+                  <select
+                    value={m.showRole || 'member'}
+                    onChange={(e) => updateMember(m, { showRole: e.target.value })}
+                    disabled={ctx.show?.ownerId === m.id}
+                  >
+                    <option value="member">member</option>
+                    <option value="show_admin">show_admin</option>
                   </select>
-                  <button type="button" onClick={() => removeMember(m.id)} disabled={show?.ownerId === m.id}>
-                    Remove
-                  </button>
                 </div>
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, display: 'grid', gap: 6 }}>
-                  {showModules.map((mod) => {
-                    const key = mod.key || mod.id;
-                    return (
-                      <label key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>{mod.name || key}</span>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(m?.moduleAccess?.[key])}
-                          onChange={() => toggleExistingMemberModule(m, key)}
-                          disabled={show?.ownerId === m.id}
-                        />
-                      </label>
-                    );
-                  })}
+                <div className="show-card" style={{ padding: 10 }}>
+                  {MODULE_KEYS.map((key) => (
+                    <label className="switch-row" key={key}>
+                      <span>{MODULE_META[key]?.label || key}</span>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(m?.moduleAccess?.[key])}
+                        onChange={() =>
+                          updateMember(m, {
+                            moduleAccess: normalizeModuleAccess({ ...m.moduleAccess, [key]: !m?.moduleAccess?.[key] }),
+                          })
+                        }
+                        disabled={ctx.show?.ownerId === m.id}
+                      />
+                    </label>
+                  ))}
                 </div>
-              </div>
+              </article>
             ))}
-          </div>
+          </section>
         </div>
       </AppShell>
     </ShowRoute>

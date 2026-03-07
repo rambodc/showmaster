@@ -29,7 +29,10 @@ import ShowWorkspace from './shows/ShowWorkspace';
 import ShowMembers from './shows/ShowMembers';
 import ShowModules from './shows/ShowModules';
 import ShowInventory from './shows/ShowInventory';
-import ShowModulePage from './shows/ShowModulePage';
+import ShowSecurity from './shows/ShowSecurity';
+import ShowCarps from './shows/ShowCarps';
+import ShowArtists from './shows/ShowArtists';
+import ShowAi3DModel from './shows/ShowAi3DModel';
 
 // Route guard
 import ProtectedRoute from './ProtectedRoute';
@@ -85,6 +88,14 @@ function AppRoutes({ user }) {
           path="/shows/:showId"
           element={
             <ProtectedRoute>
+              <Navigate to="workspace" replace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/workspace"
+          element={
+            <ProtectedRoute>
               <ShowWorkspace />
             </ProtectedRoute>
           }
@@ -106,6 +117,22 @@ function AppRoutes({ user }) {
           }
         />
         <Route
+          path="/shows/:showId/security"
+          element={
+            <ProtectedRoute>
+              <ShowSecurity />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/carps"
+          element={
+            <ProtectedRoute>
+              <ShowCarps />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/shows/:showId/inventory"
           element={
             <ProtectedRoute>
@@ -114,10 +141,18 @@ function AppRoutes({ user }) {
           }
         />
         <Route
-          path="/shows/:showId/module/:moduleKey"
+          path="/shows/:showId/artists"
           element={
             <ProtectedRoute>
-              <ShowModulePage />
+              <ShowArtists />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/ai-3d-model"
+          element={
+            <ProtectedRoute>
+              <ShowAi3DModel />
             </ProtectedRoute>
           }
         />
@@ -237,6 +272,7 @@ function App() {
             email: u.email ?? null,
             firstName: '',
             lastName: '',
+            systemRole: 'user',
             primaryAuthUid: u.uid,
             createdAt: now,
             updatedAt: now,
@@ -286,6 +322,7 @@ function App() {
                 typeof data.usernameNormalized === 'string'
                   ? data.usernameNormalized
                   : normalizeUsername(finalUsername || existingUsername || ''),
+              systemRole: typeof data.systemRole === 'string' ? data.systemRole : 'user',
             };
 
             setAppUser({ id: u.uid, firebaseUid: u.uid, email: u.email ?? null, ...finalData });

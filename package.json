@@ -15,6 +15,7 @@
     "react-icons": "^5.5.0",
     "react-router-dom": "^6.30.1",
     "react-scripts": "5.0.1",
+    "three": "^0.183.2",
     "web-vitals": "^2.1.4",
     "xrpl": "^4.4.0",
     "xumm-oauth2-pkce": "^2.8.7"

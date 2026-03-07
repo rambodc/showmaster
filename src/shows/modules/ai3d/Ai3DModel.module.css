@@ -1,0 +1,763 @@
+:root {
+  --scene-panel-bg: rgba(15, 23, 42, 0.4);
+  --scene-panel-border: rgba(148, 163, 184, 0.25);
+  --scene-accent: #38bdf8;
+  --scene-accent-strong: #2563eb;
+}
+
+.scenePage {
+  background: #e2e8f0;
+  min-height: 100vh;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.sceneTopBar {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+}
+
+.topBarTitle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.topBarMeta {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #64748b;
+}
+
+.topBarButton {
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  padding: 6px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sceneShell {
+  position: relative;
+  width: 100%;
+  height: 100svh;
+  background: #e2e8f0;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.viewerStage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  touch-action: none;
+}
+
+.viewerStage canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.modeDock {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 6;
+  align-items: flex-end;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.modeActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.walkPad {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.walkArrows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.walkRow {
+  display: flex;
+  gap: 8px;
+}
+
+.walkBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.2);
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.walkBtn svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.4;
+}
+
+.walkSpeed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 6px 8px;
+}
+
+.walkHeight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  padding: 6px 8px;
+}
+
+.walkSpeedBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.walkSpeedBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.walkSpeedValue {
+  min-width: 20px;
+  text-align: center;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.walkLabel {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+}
+
+.assetTabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.assetTab {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.assetTabActive {
+  border-color: rgba(37, 99, 235, 0.6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.assetList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.assetItem {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.assetItemActive {
+  border-color: rgba(37, 99, 235, 0.6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.assetThumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(226, 232, 240, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.assetThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.assetMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.assetName {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.assetPath {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.assetUpload {
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.assetActions {
+  margin: 8px 0 16px;
+}
+.modeActionButton {
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modeActionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modeActionButtonActive {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.transformToggle {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 6px;
+  gap: 6px;
+}
+
+.transformRow {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.transformButton {
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.transformButton svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+}
+
+.transformActive {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.scaleBadge {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.undoButton {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  padding: 6px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.undoButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editRow {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+
+.modeButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.modeButton {
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.modeButtonActive {
+  border-color: rgba(37, 99, 235, 0.6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.menuButton {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 7;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.menuTrigger {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.6);
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.menuPanel {
+  position: absolute;
+  left: 0;
+  bottom: 54px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+.menuItem {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #ffffff;
+  color: #0f172a;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.menuScrim {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  z-index: 6;
+}
+
+.navControls {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  gap: 10px;
+  z-index: 1001;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.navButton {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panelScrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(148, 163, 184, 0.35);
+  border: 0;
+  padding: 0;
+  margin: 0;
+  z-index: 1200;
+}
+
+.overlayPanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(420px, 90vw);
+  height: 100%;
+  background: rgba(255, 255, 255, 0.82);
+  border-left: 1px solid var(--scene-panel-border);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 1201;
+  display: flex;
+  flex-direction: column;
+  color: #0f172a;
+  backdrop-filter: blur(0px);
+}
+
+.panelOpen {
+  transform: translateX(0%);
+}
+
+.panelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  overflow-y: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panelHeader h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.panelClose {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.7);
+  color: #0f172a;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button,
+.navButton,
+.modeButton,
+.modeActionButton,
+.transformButton,
+.walkBtn,
+.walkSpeedBtn,
+.menuTrigger,
+.menuItem,
+.assetItem,
+.assetLink,
+.panelClose {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.inputGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.inputRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputRow label {
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.inputRow input,
+.inputRow select {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px 12px;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.inputHint {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.assetLink {
+  align-self: flex-start;
+  margin-top: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.checkRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.checkRow input {
+  width: 16px;
+  height: 16px;
+}
+
+.primaryBtn,
+.secondaryBtn,
+.dangerBtn {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primaryBtn {
+  background: linear-gradient(135deg, var(--scene-accent-strong), var(--scene-accent));
+  color: #ffffff;
+}
+
+.secondaryBtn {
+  background: rgba(148, 163, 184, 0.2);
+  color: #0f172a;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.dangerBtn {
+  background: rgba(239, 68, 68, 0.15);
+  color: #991b1b;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.formActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.errorText {
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+.objectList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.objectRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+
+.objectRowSelected {
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+}
+
+.objectRow strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.objectRow span {
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.objectRow button {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.8);
+  color: #0f172a;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.objectActions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.previewEmpty {
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.metaGrid {
+  display: grid;
+  gap: 12px;
+}
+
+.metaGrid span {
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.metaGrid strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+@media (min-width: 720px) {
+  .inputGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .modeDock {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .menuButton {
+    left: 12px;
+    bottom: 12px;
+  }
+
+}

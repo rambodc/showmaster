@@ -2,12 +2,13 @@ import React, { useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AppShell from './AppShell';
 import { UserContext } from '../App';
-import { canShowRole, useShowAccess } from '../services/showRoles';
+import { hasShowPermission, useShowContext } from '../services/accessPolicy';
 
 export default function ShowRoute({ children, permission = 'view_show' }) {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
-  const { loading, hasAccess, role, show } = useShowAccess(showId, appUser?.id);
+  const ctx = useShowContext({ showId, appUser });
+  const { loading, hasShowAccess, show } = ctx;
 
   if (loading) {
     return (
@@ -17,7 +18,7 @@ export default function ShowRoute({ children, permission = 'view_show' }) {
     );
   }
 
-  if (!hasAccess) {
+  if (!hasShowAccess) {
     return (
       <AppShell title="Show Access">
         <div style={{ maxWidth: 640, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18 }}>
@@ -29,7 +30,7 @@ export default function ShowRoute({ children, permission = 'view_show' }) {
     );
   }
 
-  if (!canShowRole(role, permission)) {
+  if (!hasShowPermission(ctx, permission)) {
     return (
       <AppShell title={show?.name || 'Show'}>
         <div style={{ maxWidth: 640, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18 }}>

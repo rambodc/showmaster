@@ -1,71 +1,35 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
-import { Link, useParams } from 'react-router-dom';
+import React, { useContext, useMemo } from 'react';
+import { doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
 import { db } from '../firebase';
-import { getVisibleModulesForMember, useShowAccess } from '../services/showRoles';
-
-const defaultModules = [
-  { key: 'security', name: 'Security', enabled: false },
-  { key: 'carps', name: 'Carps', enabled: false },
-  { key: 'inventory', name: 'Inventory', enabled: true },
-  { key: 'artists', name: 'Artist Stuff', enabled: false },
-];
+import { buildShowNavItems, buildShowPath, MODULE_META, MODULE_KEYS, useShowContext } from '../services/accessPolicy';
+import useShowModules from './useShowModules';
+import './showPages.css';
 
 export default function ShowModules() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
-  const { show, role, member } = useShowAccess(showId, appUser?.id);
-  const [modulesById, setModulesById] = useState({});
+  const ctx = useShowContext({ showId, appUser });
+  const modules = useShowModules(showId);
 
-  useEffect(() => {
-    if (!showId) return undefined;
+  const navItems = useMemo(
+    () => buildShowNavItems({ showId, modules, ctx }),
+    [ctx, modules, showId]
+  );
 
-    let cancelled = false;
-    (async () => {
-      for (const mod of defaultModules) {
-        if (cancelled) return;
-        await setDoc(
-          doc(db, 'shows', showId, 'modules', mod.key),
-          {
-            key: mod.key,
-            name: mod.name,
-            enabled: mod.enabled,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-      }
-    })();
-
-    const q = query(collection(db, 'shows', showId, 'modules'));
-    const unsub = onSnapshot(q, (snap) => {
-      const next = {};
-      snap.docs.forEach((d) => {
-        next[d.id] = { id: d.id, ...d.data() };
-      });
-      setModulesById(next);
-    });
-
-    return () => {
-      cancelled = true;
-      unsub();
-    };
-  }, [showId]);
-
-  const modules = useMemo(() => defaultModules.map((m) => modulesById[m.key] || m), [modulesById]);
-  const visibleModules = getVisibleModulesForMember({ modules, role, member });
-  const showSlug = (show?.name || 'show').toLowerCase().replace(/\s+/g, '-');
-  const navItems = visibleModules.map((m) => {
-    const key = m.key || m.id;
-    return {
-      label: m.name || key,
-      to: key === 'inventory' ? `/shows/${showId}/inventory` : `/shows/${showId}/module/${key}`,
-      matches: [key === 'inventory' ? `/shows/${showId}/inventory` : `/shows/${showId}/module/${key}`],
-    };
-  });
+  const seedMissingModules = async () => {
+    for (const key of MODULE_KEYS) {
+      await setDoc(doc(db, 'shows', showId, 'modules', key), {
+        key,
+        name: MODULE_META[key]?.label || key,
+        enabled: key === 'inventory' || key === 'ai3d',
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
+  };
 
   const toggle = async (mod) => {
     await updateDoc(doc(db, 'shows', showId, 'modules', mod.key), {
@@ -78,26 +42,32 @@ export default function ShowModules() {
     <ShowRoute permission="manage_modules">
       <AppShell
         title="Modules"
-        titlePath={`shows/${showSlug}/modules`}
+        titlePath={buildShowPath(ctx.show?.name, 'modules')}
         navItems={navItems}
         showMenuButton
         showSettingsButton
       >
-        <div style={{ display: 'grid', gap: 12 }}>
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 16 }}>
-            <h2 style={{ marginTop: 0 }}>Modules for {show?.name || 'this show'}</h2>
-            <p style={{ color: '#475569' }}>Enable only the tools this show needs.</p>
-            <Link to={`/shows/${showId}`}>Back to workspace</Link>
-          </div>
-          {modules.map((m) => (
-            <div key={m.key} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div>
-                <strong>{m.name}</strong>
-                <p style={{ margin: '4px 0 0', color: '#64748b' }}>{m.enabled ? 'Enabled' : 'Disabled'}</p>
-              </div>
-              <button type="button" onClick={() => toggle(m)}>{m.enabled ? 'Disable' : 'Enable'}</button>
+        <div className="show-page-stack">
+          <section className="show-hero-card">
+            <span className="show-chip">Module Registry</span>
+            <h2 className="show-title">{ctx.show?.name || 'Show'} Modules</h2>
+            <p className="show-subtitle">Enable the tools this show should expose to members.</p>
+            <div className="show-actions">
+              <button className="show-btn-outline" type="button" onClick={seedMissingModules}>Initialize Defaults</button>
             </div>
-          ))}
+          </section>
+
+          <section className="show-grid">
+            {modules.map((m) => (
+              <article className="module-tile" key={m.key}>
+                <h3>{MODULE_META[m.key]?.label || m.name || m.key}</h3>
+                <p className="module-meta">{m.enabled ? 'Enabled for show' : 'Disabled for show'}</p>
+                <button className={m.enabled ? 'show-btn-outline' : 'show-btn'} type="button" onClick={() => toggle(m)}>
+                  {m.enabled ? 'Disable' : 'Enable'}
+                </button>
+              </article>
+            ))}
+          </section>
         </div>
       </AppShell>
     </ShowRoute>

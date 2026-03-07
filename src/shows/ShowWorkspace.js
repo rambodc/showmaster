@@ -1,99 +1,71 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import React, { useContext, useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
-import { db } from '../firebase';
 import { UserContext } from '../App';
-import { getVisibleModulesForMember, SHOW_ROLE, useShowAccess } from '../services/showRoles';
-
-const moduleMeta = {
-  security: { label: 'Security' },
-  carps: { label: 'Carps' },
-  inventory: { label: 'Inventory' },
-  artists: { label: 'Artist Stuff' },
-};
-
-const moduleRoute = (showId, moduleKey) => {
-  if (moduleKey === 'inventory') return `/shows/${showId}/inventory`;
-  return `/shows/${showId}/module/${moduleKey}`;
-};
+import { buildShowNavItems, buildShowPath, canAccessModule, MODULE_META, useShowContext } from '../services/accessPolicy';
+import useShowModules, { getModuleRoute } from './useShowModules';
+import './showPages.css';
 
 export default function ShowWorkspace() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
   const navigate = useNavigate();
-  const { loading, show, role, member } = useShowAccess(showId, appUser?.id);
-  const [modules, setModules] = useState([]);
+  const ctx = useShowContext({ showId, appUser });
+  const modules = useShowModules(showId);
 
-  useEffect(() => {
-    if (!showId) return undefined;
-    const q = query(collection(db, 'shows', showId, 'modules'), orderBy('updatedAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setModules(list);
-    });
-    return () => unsub();
-  }, [showId]);
-
-  const enabledModules = useMemo(() => modules.filter((m) => m.enabled), [modules]);
-  const visibleModules = useMemo(
-    () => getVisibleModulesForMember({ modules, role, member }),
-    [member, modules, role]
-  );
-  const showSlug = (show?.name || 'show').toLowerCase().replace(/\s+/g, '-');
   const navItems = useMemo(
-    () =>
-      visibleModules.map((m) => ({
-        label: moduleMeta[m.key || m.id]?.label || m.name || m.key || m.id,
-        to: moduleRoute(showId, m.key || m.id),
-        matches: [moduleRoute(showId, m.key || m.id)],
-      })),
-    [showId, visibleModules]
+    () => buildShowNavItems({ showId, modules, ctx }),
+    [ctx, modules, showId]
   );
 
-  if (loading) {
-    return <AppShell title="Show Workspace"><p>Loading…</p></AppShell>;
-  }
+  const visibleModules = modules.filter((m) => canAccessModule({ moduleKey: m.key, moduleEnabled: m.enabled, ctx }));
 
   return (
     <ShowRoute permission="view_show">
       <AppShell
-        title={show?.name || 'Show'}
-        titlePath={`shows/${showSlug}/workspace`}
+        title={ctx.show?.name || 'Show Workspace'}
+        titlePath={buildShowPath(ctx.show?.name, 'workspace')}
         navItems={navItems}
         showMenuButton
         showSettingsButton
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16 }}>
-            <p style={{ margin: 0, color: '#64748b', fontWeight: 600 }}>Show Workspace</p>
-            <h2 style={{ margin: '6px 0' }}>{show?.name || 'Untitled Show'}</h2>
-            <p style={{ margin: 0, color: '#475569' }}>Role: <strong>{role || SHOW_ROLE.VIEWER}</strong></p>
-            <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => navigate(`/shows/${showId}/members`)}>Members</button>
-              <button type="button" onClick={() => navigate(`/shows/${showId}/modules`)}>Modules</button>
-              <button type="button" onClick={() => navigate('/shows')}>All Shows</button>
+        <div className="show-page-stack">
+          <section className="show-hero-card">
+            <span className="show-chip">Show Workspace</span>
+            <h2 className="show-title">{ctx.show?.name || 'Untitled Show'}</h2>
+            <p className="show-subtitle">
+              Run operations across modules with role-aware access and show-scoped data.
+            </p>
+            <div className="show-actions">
+              {(ctx.isSuperAdmin || ctx.isShowAdmin) ? (
+                <button className="show-btn" type="button" onClick={() => navigate(`/shows/${showId}/members`)}>Manage Access</button>
+              ) : null}
+              {(ctx.isSuperAdmin || ctx.isShowAdmin) ? (
+                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/modules`)}>Configure Modules</button>
+              ) : null}
+              <button className="show-btn-outline" type="button" onClick={() => navigate('/shows')}>Back to Shows</button>
             </div>
-          </div>
+          </section>
 
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-            {enabledModules.length === 0 ? (
-              <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 16 }}>
-                No modules enabled yet.
-              </div>
+          <section className="show-grid">
+            {visibleModules.length === 0 ? (
+              <article className="module-tile">
+                <h3>No modules available</h3>
+                <p className="module-meta">Ask an admin to enable modules for this show and your account.</p>
+              </article>
             ) : (
-              enabledModules.map((mod) => (
-                <div key={mod.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: 16 }}>
-                  <h3 style={{ marginTop: 0 }}>{moduleMeta[mod.id]?.label || mod.name || mod.id}</h3>
-                  <p style={{ color: '#475569' }}>Enabled module in this show.</p>
-                  <Link to={moduleRoute(showId, mod.id || mod.key)}>
-                    Open {(moduleMeta[mod.id || mod.key]?.label || mod.name || mod.id || mod.key)}
-                  </Link>
-                </div>
+              visibleModules.map((mod) => (
+                <article className="module-tile" key={mod.key}>
+                  <h3>{MODULE_META[mod.key]?.label || mod.name || mod.key}</h3>
+                  <p className="module-meta">Module configured for this show.</p>
+                  <button className="show-btn" type="button" onClick={() => navigate(getModuleRoute(showId, mod.key))}>
+                    Open Module
+                  </button>
+                </article>
               ))
             )}
-          </div>
+          </section>
         </div>
       </AppShell>
     </ShowRoute>
