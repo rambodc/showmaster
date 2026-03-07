@@ -1,10 +1,9 @@
 .shows-layout {
   display: grid;
-  grid-template-columns: 1.05fr 1.45fr;
+  grid-template-columns: 1fr;
   gap: 16px;
 }
 
-.shows-create-card,
 .shows-list-card {
   background: linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.95));
   border: 1px solid rgba(186, 230, 253, 0.9);
@@ -20,34 +19,6 @@
   text-transform: uppercase;
   color: #0369a1;
   font-weight: 700;
-}
-
-.shows-create-card h2 {
-  margin: 10px 0 12px;
-  font-size: 1.4rem;
-}
-
-.shows-form {
-  display: grid;
-  gap: 10px;
-}
-
-.shows-form input,
-.shows-form textarea {
-  border-radius: 10px;
-  border: 1px solid #bfdbfe;
-  padding: 10px 12px;
-  background: #fff;
-}
-
-.shows-form button {
-  border: 0;
-  border-radius: 12px;
-  padding: 11px 13px;
-  background: linear-gradient(120deg, #0284c7, #0ea5e9);
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .shows-grid {

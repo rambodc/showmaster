@@ -6,6 +6,7 @@ import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
 import { db } from '../firebase';
 import { buildShowNavItems, buildShowPath, MODULE_META, MODULE_KEYS, useShowContext } from '../services/accessPolicy';
+import { MODULE_CATALOG } from '../services/moduleCatalog';
 import useShowModules from './useShowModules';
 import './showPages.css';
 
@@ -22,10 +23,13 @@ export default function ShowModules() {
 
   const seedMissingModules = async () => {
     for (const key of MODULE_KEYS) {
+      const mod = MODULE_CATALOG.find((m) => m.key === key);
       await setDoc(doc(db, 'shows', showId, 'modules', key), {
         key,
-        name: MODULE_META[key]?.label || key,
-        enabled: key === 'inventory' || key === 'ai3d',
+        label: mod?.label || MODULE_META[key]?.label || key,
+        order: mod?.order || 999,
+        version: 1,
+        enabled: Boolean(mod?.defaultEnabled),
         updatedAt: serverTimestamp(),
       }, { merge: true });
     }
@@ -60,7 +64,7 @@ export default function ShowModules() {
           <section className="show-grid">
             {modules.map((m) => (
               <article className="module-tile" key={m.key}>
-                <h3>{MODULE_META[m.key]?.label || m.name || m.key}</h3>
+                <h3>{MODULE_META[m.key]?.label || m.label || m.key}</h3>
                 <p className="module-meta">{m.enabled ? 'Enabled for show' : 'Disabled for show'}</p>
                 <button className={m.enabled ? 'show-btn-outline' : 'show-btn'} type="button" onClick={() => toggle(m)}>
                   {m.enabled ? 'Disable' : 'Enable'}

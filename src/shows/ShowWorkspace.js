@@ -57,7 +57,7 @@ export default function ShowWorkspace() {
             ) : (
               visibleModules.map((mod) => (
                 <article className="module-tile" key={mod.key}>
-                  <h3>{MODULE_META[mod.key]?.label || mod.name || mod.key}</h3>
+                  <h3>{MODULE_META[mod.key]?.label || mod.label || mod.key}</h3>
                   <p className="module-meta">Module configured for this show.</p>
                   <button className="show-btn" type="button" onClick={() => navigate(getModuleRoute(showId, mod.key))}>
                     Open Module

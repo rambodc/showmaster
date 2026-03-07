@@ -1,18 +1,10 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, collectionGroup, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { collection, collectionGroup, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import { UserContext } from '../App';
 import { db } from '../firebase';
 import './Home.css';
-
-const defaultModules = [
-  { key: 'security', name: 'Security', enabled: false },
-  { key: 'carps', name: 'Carps', enabled: false },
-  { key: 'inventory', name: 'Inventory', enabled: true },
-  { key: 'artists', name: 'Artists', enabled: false },
-  { key: 'ai3d', name: 'AI 3D Model', enabled: true },
-];
 
 function Home() {
   const appUser = useContext(UserContext);
@@ -20,9 +12,6 @@ function Home() {
 
   const [shows, setShows] = useState([]);
   const [memberShowIds, setMemberShowIds] = useState([]);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'shows'), orderBy('updatedAt', 'desc'));
@@ -39,44 +28,14 @@ function Home() {
       return undefined;
     }
 
-    const identityCandidates = Array.from(
-      new Set(
-        [appUser.id, appUser.uid, appUser.primaryAuthUid]
-          .map((v) => String(v || '').trim())
-          .filter(Boolean)
-      )
-    );
-    const normalizedEmail = String(appUser.email || '').trim().toLowerCase();
-
-    const showIdSet = new Set();
-    const unsubs = [];
-
-    const pushSnapshotIds = (snap) => {
-      snap.docs.forEach((d) => {
-        const showId = d.ref.parent?.parent?.id;
-        if (showId) showIdSet.add(showId);
-      });
-      setMemberShowIds(Array.from(showIdSet));
-    };
-
-    identityCandidates.forEach((uidValue) => {
-      const q = query(collectionGroup(db, 'members'), where('uid', '==', uidValue));
-      unsubs.push(
-        onSnapshot(q, (snap) => pushSnapshotIds(snap))
-      );
+    const q = query(collectionGroup(db, 'members'), where('uid', '==', appUser.id));
+    const unsub = onSnapshot(q, (snap) => {
+      const ids = snap.docs.map((d) => d.ref.parent?.parent?.id).filter(Boolean);
+      setMemberShowIds(Array.from(new Set(ids)));
     });
 
-    if (normalizedEmail) {
-      const q = query(collectionGroup(db, 'members'), where('email', '==', normalizedEmail));
-      unsubs.push(
-        onSnapshot(q, (snap) => pushSnapshotIds(snap))
-      );
-    }
-
-    return () => {
-      unsubs.forEach((fn) => fn());
-    };
-  }, [appUser?.email, appUser?.id, appUser?.primaryAuthUid, appUser?.uid]);
+    return () => unsub();
+  }, [appUser?.id]);
 
   const visibleShows = useMemo(() => {
     if (!appUser?.id) return [];
@@ -84,56 +43,6 @@ function Home() {
     const memberSet = new Set(memberShowIds);
     return shows.filter((show) => show.ownerId === appUser.id || memberSet.has(show.id));
   }, [appUser?.id, appUser?.systemRole, memberShowIds, shows]);
-
-  const createShow = async (e) => {
-    e.preventDefault();
-    if (!appUser?.id || !name.trim()) return;
-
-    setSaving(true);
-    try {
-      const now = serverTimestamp();
-      const showRef = await addDoc(collection(db, 'shows'), {
-        name: name.trim(),
-        description: description.trim(),
-        ownerId: appUser.id,
-        ownerEmail: appUser.email || null,
-        status: 'active',
-        createdAt: now,
-        updatedAt: now,
-      });
-
-      await setDoc(doc(db, 'shows', showRef.id, 'members', appUser.id), {
-        uid: appUser.id,
-        email: appUser.email || null,
-        displayName: `${appUser.firstName || ''} ${appUser.lastName || ''}`.trim() || null,
-        showRole: 'show_admin',
-        moduleAccess: {
-          security: true,
-          carps: true,
-          inventory: true,
-          artists: true,
-          ai3d: true,
-        },
-        createdAt: now,
-        updatedAt: now,
-      }, { merge: true });
-
-      for (const mod of defaultModules) {
-        await setDoc(doc(db, 'shows', showRef.id, 'modules', mod.key), {
-          key: mod.key,
-          name: mod.name,
-          enabled: mod.enabled,
-          updatedAt: now,
-        }, { merge: true });
-      }
-
-      setName('');
-      setDescription('');
-      navigate(`/shows/${showRef.id}/workspace`);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <AppShell
@@ -143,30 +52,12 @@ function Home() {
       showSettingsButton
     >
       <div className="shows-layout">
-        <section className="shows-create-card">
-          <p className="shows-eyebrow">Create Show</p>
-          <h2>Start a new show workspace</h2>
-          <form onSubmit={createShow} className="shows-form">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Show name"
-              required
-            />
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Description (optional)"
-            />
-            <button type="submit" disabled={saving}>{saving ? 'Creating…' : 'Create Show'}</button>
-          </form>
-        </section>
-
         <section className="shows-list-card">
-          <h3 style={{ marginTop: 0 }}>Your shows</h3>
+          <h3 style={{ marginTop: 0 }}>Assigned Shows</h3>
           {visibleShows.length === 0 ? (
-            <p className="shows-muted">No shows yet. Create one to get started.</p>
+            <p className="shows-muted">
+              No shows assigned yet. Ask a super admin or show admin to assign you.
+            </p>
           ) : (
             <div className="shows-grid">
               {visibleShows.map((show) => (

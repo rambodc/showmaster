@@ -2,14 +2,13 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { MODULE_KEYS } from './moduleCatalog.js';
 
 initializeApp();
 
 export const db = getFirestore();
 export const adminAuth = getAuth();
 export { FieldValue, HttpsError };
-
-export const MODULE_KEYS = ['security', 'carps', 'inventory', 'artists', 'ai3d'];
 
 export function assertAuth(request) {
   if (!request.auth?.uid) {
@@ -51,4 +50,12 @@ export async function canManageShow(uid, showId) {
   const memberSnap = await db.collection('shows').doc(showId).collection('members').doc(uid).get();
   const member = memberSnap.exists ? memberSnap.data() || {} : {};
   return member.showRole === 'show_admin';
+}
+
+export async function getShow(showId) {
+  const snap = await db.collection('shows').doc(showId).get();
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'Show not found.');
+  }
+  return { id: snap.id, ...(snap.data() || {}) };
 }

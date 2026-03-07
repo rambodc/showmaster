@@ -1,9 +1,9 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, assertSuperAdmin, db, FieldValue, HttpsError, normalizeModuleAccess } from '../lib/firebase.js';
+import { assertAuth, canManageShow, db, FieldValue, getShow, getSystemRole, HttpsError, normalizeModuleAccess } from '../lib/firebase.js';
 
 export const assignUserToShow = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
-  await assertSuperAdmin(callerUid);
+  const callerSystemRole = await getSystemRole(callerUid);
 
   const showId = String(request.data?.showId || '').trim();
   const userId = String(request.data?.userId || '').trim();
@@ -14,8 +14,18 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
     throw new HttpsError('invalid-argument', 'Invalid show assignment payload.');
   }
 
+  if (callerSystemRole !== 'super_admin') {
+    const allowed = await canManageShow(callerUid, showId);
+    if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
+  }
+
   const userSnap = await db.collection('users').doc(userId).get();
   if (!userSnap.exists) throw new HttpsError('not-found', 'User not found.');
+  const show = await getShow(showId);
+
+  if (show.ownerId === userId) {
+    throw new HttpsError('failed-precondition', 'Owner membership is managed automatically.');
+  }
 
   const user = userSnap.data() || {};
 

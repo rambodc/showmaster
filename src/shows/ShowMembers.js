@@ -24,6 +24,7 @@ export default function ShowMembers() {
   const [showRole, setShowRole] = useState('member');
   const [newAccess, setNewAccess] = useState(normalizeModuleAccess({}));
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     if (!showId) return undefined;
@@ -56,6 +57,7 @@ export default function ShowMembers() {
   const assignUser = async () => {
     if (!selectedUser?.uid) return;
     setSaving(true);
+    setMessage('');
     try {
       const fn = httpsCallable(functions, 'assignUserToShow');
       await fn({
@@ -67,14 +69,52 @@ export default function ShowMembers() {
       setSelectedUser(null);
       setQueryText('');
       setSearchResults([]);
+      setMessage('User assigned to show.');
+    } catch (err) {
+      setMessage(err?.message || 'Failed to assign user.');
     } finally {
       setSaving(false);
     }
   };
 
   const updateMember = async (member, updates) => {
-    const fn = httpsCallable(functions, 'updateShowMemberAccess');
-    await fn({ showId, userId: member.id, ...updates });
+    setMessage('');
+    try {
+      const fn = httpsCallable(functions, 'updateShowMemberAccess');
+      await fn({ showId, userId: member.id, ...updates });
+      setMessage('Member access updated.');
+    } catch (err) {
+      setMessage(err?.message || 'Failed to update member.');
+    }
+  };
+
+  const removeMember = async (member) => {
+    const confirmed = window.confirm(`Remove ${member.displayName || member.email || member.uid} from this show?`);
+    if (!confirmed) return;
+    setMessage('');
+    try {
+      const fn = httpsCallable(functions, 'removeUserFromShow');
+      await fn({ showId, userId: member.id });
+      setMessage('Member removed from show.');
+    } catch (err) {
+      setMessage(err?.message || 'Failed to remove member.');
+    }
+  };
+
+  const setAllAccess = (value) => {
+    const next = {};
+    modules.forEach((m) => {
+      next[m.key] = m.enabled ? value : false;
+    });
+    setNewAccess(normalizeModuleAccess(next));
+  };
+
+  const setAllMemberAccess = async (member, value) => {
+    const next = {};
+    modules.forEach((m) => {
+      next[m.key] = m.enabled ? value : false;
+    });
+    await updateMember(member, { moduleAccess: normalizeModuleAccess(next) });
   };
 
   return (
@@ -124,23 +164,36 @@ export default function ShowMembers() {
                   <option value="member">member</option>
                   <option value="show_admin">show_admin</option>
                 </select>
+                <div className="show-actions">
+                  <button className="show-btn-outline" type="button" onClick={() => setAllAccess(true)}>Enable All Modules</button>
+                  <button className="show-btn-outline" type="button" onClick={() => setAllAccess(false)}>Disable All Modules</button>
+                </div>
                 <div className="show-card" style={{ padding: 12 }}>
-                  {MODULE_KEYS.map((key) => (
+                  {MODULE_KEYS.map((key) => {
+                    const registryModule = modules.find((mod) => mod.key === key);
+                    const moduleEnabled = Boolean(registryModule?.enabled);
+                    return (
                     <label className="switch-row" key={key}>
-                      <span>{MODULE_META[key]?.label || key}</span>
+                      <span>
+                        {MODULE_META[key]?.label || key}
+                        {!moduleEnabled ? ' (disabled at show level)' : ''}
+                      </span>
                       <input
                         type="checkbox"
-                        checked={Boolean(newAccess[key])}
+                        checked={moduleEnabled && Boolean(newAccess[key])}
+                        disabled={!moduleEnabled}
                         onChange={() => setNewAccess((prev) => ({ ...prev, [key]: !prev[key] }))}
                       />
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
                 <button className="show-btn" type="button" onClick={assignUser} disabled={saving}>
                   {saving ? 'Assigning...' : 'Assign User to Show'}
                 </button>
               </div>
             ) : null}
+            {message ? <p className="info-note" style={{ marginTop: 10 }}>{message}</p> : null}
           </section>
 
           <section className="members-grid">
@@ -161,22 +214,36 @@ export default function ShowMembers() {
                     <option value="show_admin">show_admin</option>
                   </select>
                 </div>
+                <div className="show-actions" style={{ marginTop: 0 }}>
+                  <button className="show-btn-outline" type="button" onClick={() => setAllMemberAccess(m, true)}>Enable All</button>
+                  <button className="show-btn-outline" type="button" onClick={() => setAllMemberAccess(m, false)}>Disable All</button>
+                  <button className="show-btn-danger" type="button" onClick={() => removeMember(m)} disabled={ctx.show?.ownerId === m.id}>
+                    Remove Member
+                  </button>
+                </div>
                 <div className="show-card" style={{ padding: 10 }}>
-                  {MODULE_KEYS.map((key) => (
+                  {MODULE_KEYS.map((key) => {
+                    const registryModule = modules.find((mod) => mod.key === key);
+                    const moduleEnabled = Boolean(registryModule?.enabled);
+                    return (
                     <label className="switch-row" key={key}>
-                      <span>{MODULE_META[key]?.label || key}</span>
+                      <span>
+                        {MODULE_META[key]?.label || key}
+                        {!moduleEnabled ? ' (disabled at show level)' : ''}
+                      </span>
                       <input
                         type="checkbox"
-                        checked={Boolean(m?.moduleAccess?.[key])}
+                        checked={moduleEnabled && Boolean(m?.moduleAccess?.[key])}
+                        disabled={ctx.show?.ownerId === m.id || !moduleEnabled}
                         onChange={() =>
                           updateMember(m, {
                             moduleAccess: normalizeModuleAccess({ ...m.moduleAccess, [key]: !m?.moduleAccess?.[key] }),
                           })
                         }
-                        disabled={ctx.show?.ownerId === m.id}
                       />
                     </label>
-                  ))}
+                    );
+                  })}
                 </div>
               </article>
             ))}

@@ -1,16 +1,9 @@
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { db } from '../firebase';
+import { MODULE_KEYS, MODULE_META } from './moduleCatalog';
 
-export const MODULE_KEYS = ['security', 'carps', 'inventory', 'artists', 'ai3d'];
-
-export const MODULE_META = {
-  security: { key: 'security', label: 'Security', route: 'security' },
-  carps: { key: 'carps', label: 'Carps', route: 'carps' },
-  inventory: { key: 'inventory', label: 'Inventory', route: 'inventory' },
-  artists: { key: 'artists', label: 'Artists', route: 'artists' },
-  ai3d: { key: 'ai3d', label: 'AI 3D Model', route: 'ai-3d-model' },
-};
+export { MODULE_KEYS, MODULE_META };
 
 export function normalizeModuleAccess(input = {}) {
   const out = {};

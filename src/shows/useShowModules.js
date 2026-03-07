@@ -1,12 +1,14 @@
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, setDoc } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { db } from '../firebase';
-import { MODULE_KEYS, MODULE_META } from '../services/accessPolicy';
+import { MODULE_CATALOG, MODULE_META } from '../services/moduleCatalog';
 
-const defaults = MODULE_KEYS.map((key) => ({
-  key,
-  name: MODULE_META[key]?.label || key,
-  enabled: key === 'inventory' || key === 'ai3d',
+const defaults = MODULE_CATALOG.map((mod) => ({
+  key: mod.key,
+  label: mod.label,
+  order: mod.order,
+  enabled: Boolean(mod.defaultEnabled),
+  version: 1,
 }));
 
 export function getModuleRoute(showId, moduleKey) {
@@ -22,9 +24,11 @@ export function getModuleRoute(showId, moduleKey) {
 
 export default function useShowModules(showId) {
   const [modulesById, setModulesById] = useState({});
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!showId) return undefined;
+    setLoaded(false);
     const q = query(collection(db, 'shows', showId, 'modules'));
     const unsub = onSnapshot(q, (snap) => {
       const next = {};
@@ -33,15 +37,37 @@ export default function useShowModules(showId) {
         const key = data.key || d.id;
         next[key] = {
           key,
-          name: data.name || MODULE_META[key]?.label || key,
+          label: data.label || data.name || MODULE_META[key]?.label || key,
+          order: Number.isFinite(data.order) ? data.order : 999,
           enabled: Boolean(data.enabled),
+          version: Number.isFinite(data.version) ? data.version : 1,
           ...data,
         };
       });
       setModulesById(next);
+      setLoaded(true);
     });
     return () => unsub();
   }, [showId]);
 
-  return useMemo(() => defaults.map((d) => modulesById[d.key] || d), [modulesById]);
+  useEffect(() => {
+    if (!showId || !loaded) return;
+    MODULE_CATALOG.forEach(async (mod) => {
+      if (modulesById[mod.key]) return;
+      await setDoc(doc(db, 'shows', showId, 'modules', mod.key), {
+        key: mod.key,
+        label: mod.label,
+        order: mod.order,
+        version: 1,
+        enabled: Boolean(mod.defaultEnabled),
+      }, { merge: true });
+    });
+  }, [loaded, modulesById, showId]);
+
+  return useMemo(
+    () => defaults
+      .map((d) => modulesById[d.key] || d)
+      .sort((a, b) => (a.order || 999) - (b.order || 999)),
+    [modulesById]
+  );
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { FiLock, FiMail, FiLogOut, FiUser, FiHash, FiUserPlus, FiShield } from 'react-icons/fi';
+import { FiLock, FiMail, FiLogOut, FiUser, FiHash, FiUserPlus, FiShield, FiLayers } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import { auth, db, functions } from '../firebase';
 import { UserContext } from '../App';
@@ -24,12 +24,18 @@ export default function Settings() {
   const [showId, setShowId] = useState('');
   const [showRole, setShowRole] = useState('member');
   const [moduleAccess, setModuleAccess] = useState(normalizeModuleAccess({}));
+  const [showForm, setShowForm] = useState({ name: '', description: '' });
+  const [creatingShow, setCreatingShow] = useState(false);
 
   useEffect(() => {
+    if (!isSuperAdmin) {
+      setShows([]);
+      return undefined;
+    }
     const q = query(collection(db, 'shows'), orderBy('updatedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => setShows(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
     return () => unsub();
-  }, []);
+  }, [isSuperAdmin]);
 
   const handleLogout = async () => {
     try {
@@ -69,6 +75,24 @@ export default function Settings() {
       setMessage(`Assigned ${createdUser.email} to show.`);
     } catch (err) {
       setMessage(err?.message || 'Failed to assign user to show.');
+    }
+  };
+
+  const createShow = async (e) => {
+    e.preventDefault();
+    if (!isSuperAdmin || !showForm.name.trim()) return;
+    setCreatingShow(true);
+    setMessage('');
+    try {
+      const fn = httpsCallable(functions, 'createShow');
+      const result = await fn({ name: showForm.name, description: showForm.description });
+      const newShowId = result?.data?.showId;
+      setMessage(`Show created${newShowId ? `: ${newShowId}` : ''}`);
+      setShowForm({ name: '', description: '' });
+    } catch (err) {
+      setMessage(err?.message || 'Failed to create show.');
+    } finally {
+      setCreatingShow(false);
     }
   };
 
@@ -139,6 +163,47 @@ export default function Settings() {
             </>
           )}
           {message ? <p className="info-note" style={{ marginTop: 10 }}>{message}</p> : null}
+        </section>
+
+        <section className="show-card" style={{ padding: 16 }}>
+          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}><FiLayers /> Show Administration</h3>
+          {!isSuperAdmin ? (
+            <p className="info-note">Only super admins can create shows.</p>
+          ) : (
+            <>
+              <form className="form-grid" onSubmit={createShow}>
+                <input
+                  value={showForm.name}
+                  onChange={(e) => setShowForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Show name"
+                  required
+                />
+                <textarea
+                  rows={3}
+                  value={showForm.description}
+                  onChange={(e) => setShowForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description (optional)"
+                />
+                <button className="show-btn" type="submit" disabled={creatingShow}>
+                  {creatingShow ? 'Creating...' : 'Create Show'}
+                </button>
+              </form>
+
+              <div className="members-grid" style={{ marginTop: 10 }}>
+                {shows.map((show) => (
+                  <article className="member-card" key={show.id}>
+                    <strong>{show.name || show.id}</strong>
+                    <p className="info-note">{show.description || 'No description'}</p>
+                    <div className="switch-row"><span>Status</span><span>{show.status || 'active'}</span></div>
+                    <div className="switch-row"><span>Owner</span><span>{show.ownerEmail || show.ownerId || '-'}</span></div>
+                    <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${show.id}/workspace`)}>
+                      Open Show
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       </div>
     </AppShell>
