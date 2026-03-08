@@ -25,6 +25,7 @@ export default function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const items = useMemo(() => navItems || defaultNavItems, [navItems]);
+  const brandTitle = showBackButton ? title : 'ShowMaster';
 
   const renderNav = () => (
     <nav className="app-shell-nav">
@@ -58,7 +59,7 @@ export default function AppShell({
               <FiArrowLeft />
             </button>
           ) : null}
-          <div className="app-shell-brand">ShowMaster</div>
+          <div className="app-shell-brand">{brandTitle}</div>
         </div>
         {renderNav()}
       </aside>
@@ -78,13 +79,13 @@ export default function AppShell({
       <div className="app-shell-main">
         <header className="app-shell-mobile-topbar">
           <div className="app-shell-mobile-left">
-            {showBackButton ? (
-              <button type="button" className="app-shell-icon-btn" onClick={() => navigate(backTo)}>
-                <FiArrowLeft />
-              </button>
-            ) : showMenuButton ? (
+            {showMenuButton ? (
               <button type="button" className="app-shell-icon-btn" onClick={() => setMobileOpen(true)}>
                 <FiMenu />
+              </button>
+            ) : showBackButton ? (
+              <button type="button" className="app-shell-icon-btn" onClick={() => navigate(backTo)}>
+                <FiArrowLeft />
               </button>
             ) : (
               <span style={{ width: 34 }} />
