@@ -68,7 +68,22 @@ export default function AppShell({
 
       <aside className={mobileOpen ? 'app-shell-drawer open' : 'app-shell-drawer'}>
         <div className="app-shell-drawer-top">
-          <strong>{title}</strong>
+          <div className="app-shell-drawer-title-row">
+            {showBackButton ? (
+              <button
+                type="button"
+                className="app-shell-icon-btn"
+                onClick={() => {
+                  navigate(backTo);
+                  setMobileOpen(false);
+                }}
+                aria-label="Back to all shows"
+              >
+                <FiArrowLeft />
+              </button>
+            ) : null}
+            <strong>{title}</strong>
+          </div>
           <button type="button" className="app-shell-icon-btn" onClick={() => setMobileOpen(false)}>
             <FiX />
           </button>
