@@ -27,12 +27,18 @@ export default function ShowAi3DModel() {
           showBackButton
         >
           <section className="show-hero-card">
-            <h3 style={{ marginTop: 0 }}>AI 3D Model module unavailable</h3>
-            <p className="info-note">Ask a show admin to enable AI 3D access for your account.</p>
+            <h3 style={{ marginTop: 0 }}>3D Model module unavailable</h3>
+            <p className="info-note">Ask a show admin to enable 3D Model access for your account.</p>
           </section>
         </AppShell>
       ) : (
-        <Ai3DModel />
+        <AppShell
+          title={ctx.show?.name || 'Show'}
+          navItems={navItems}
+          showBackButton
+        >
+          <Ai3DModel />
+        </AppShell>
       )}
     </ShowRoute>
   );

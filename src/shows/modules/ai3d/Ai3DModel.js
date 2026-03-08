@@ -6,7 +6,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { addDoc, collection, deleteDoc, deleteField, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, getMetadata, list, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { FiArrowUp, FiArrowRight, FiArrowDown, FiArrowLeft, FiMaximize2, FiMousePointer, FiMap, FiNavigation, FiMove, FiRotateCw, FiMoreHorizontal, FiCornerUpLeft, FiCornerUpRight } from 'react-icons/fi';
 import styles from './Ai3DModel.module.css';
 import { db, storage } from '../../../firebase';
@@ -73,7 +73,6 @@ const buildSummary = (obj) => ({
 
 export default function Ai3DModel() {
   const { showId } = useParams();
-  const navigate = useNavigate();
   const appUser = useContext(UserContext);
   const canvasRef = useRef(null);
   const lastSizeRef = useRef({ width: 0, height: 0 });
@@ -155,11 +154,17 @@ export default function Ai3DModel() {
   const unitLabel = sceneForm.unit === 'ft' ? 'ft' : 'm';
 
   const objectsCollection = useMemo(
-    () => collection(db, 'shows', showId, 'modules', 'ai3d', 'objects'),
-    []
+    () => (showId ? collection(db, 'shows', showId, 'modules', 'ai3d', 'objects') : null),
+    [showId]
   );
-  const sceneDocRef = useMemo(() => doc(db, 'shows', showId, 'modules', 'ai3d'), []);
-  const sceneSettingsRef = useMemo(() => doc(db, 'shows', showId, 'modules', 'ai3d', 'scene', 'settings'), []);
+  const sceneDocRef = useMemo(
+    () => (showId ? doc(db, 'shows', showId, 'modules', 'ai3d') : null),
+    [showId]
+  );
+  const sceneSettingsRef = useMemo(
+    () => (showId ? doc(db, 'shows', showId, 'modules', 'ai3d', 'scene', 'settings') : null),
+    [showId]
+  );
 
   const selectedObject = useMemo(
     () => objects.find((obj) => obj.id === selectedId) || null,
@@ -180,12 +185,12 @@ export default function Ai3DModel() {
   }, []);
 
   const applySnapshot = useCallback(async (objectId, data) => {
-    if (!objectId || !data) return;
+    if (!showId || !objectId || !data) return;
     await setDoc(doc(db, 'shows', showId, 'modules', 'ai3d', 'objects', objectId), {
       ...data,
       updatedAt: serverTimestamp(),
     }, { merge: true });
-  }, []);
+  }, [showId]);
 
   const handleUndo = useCallback(async () => {
     const stack = undoStackRef.current;
@@ -269,6 +274,7 @@ export default function Ai3DModel() {
   }, [handleRedo, handleUndo]);
 
   useEffect(() => {
+    if (!objectsCollection) return undefined;
     const unsub = onSnapshot(
       objectsCollection,
       (snap) => {
@@ -284,6 +290,7 @@ export default function Ai3DModel() {
   }, [objectsCollection]);
 
   useEffect(() => {
+    if (!sceneSettingsRef) return undefined;
     const unsub = onSnapshot(
       sceneSettingsRef,
       (snap) => {
@@ -309,7 +316,7 @@ export default function Ai3DModel() {
   }, [sceneSettingsRef]);
 
   useEffect(() => {
-    if (!appUser?.id) return;
+    if (!appUser?.id || !sceneDocRef) return;
     if (summaryTimerRef.current) clearTimeout(summaryTimerRef.current);
     summaryTimerRef.current = setTimeout(() => {
       const summary = objects.map((obj) => buildSummary(obj));
@@ -344,7 +351,7 @@ export default function Ai3DModel() {
   }, [selectedObject]);
 
   useEffect(() => {
-    if (!canvasRef.current) return undefined;
+    if (!canvasRef.current || !showId) return undefined;
 
     const container = canvasRef.current;
     const scene = new THREE.Scene();
@@ -635,7 +642,7 @@ export default function Ai3DModel() {
       cameraRef.current = null;
       controlsRef.current = null;
     };
-  }, []);
+  }, [showId]);
 
   useEffect(() => {
     const group = groupRef.current;
@@ -1019,7 +1026,7 @@ export default function Ai3DModel() {
   };
 
   const autoSaveField = useCallback(async (field, value) => {
-    if (!selectedId || panelMode !== 'edit') return;
+    if (!showId || !selectedId || panelMode !== 'edit') return;
     if (!appUser?.id) return;
     setError('');
 
@@ -1059,7 +1066,7 @@ export default function Ai3DModel() {
     } catch (err) {
       setError(err?.message || 'Unable to save changes.');
     }
-  }, [appUser?.id, form, panelMode, pushHistory, selectedId, selectedObject]);
+  }, [appUser?.id, form, panelMode, pushHistory, selectedId, selectedObject, showId]);
 
   const onAssetFileChange = (event) => {
     const file = event.target.files?.[0] || null;
@@ -1071,7 +1078,7 @@ export default function Ai3DModel() {
   };
 
   const autoSaveSceneField = useCallback(async (field, value) => {
-    if (!appUser?.id) return;
+    if (!appUser?.id || !sceneSettingsRef) return;
     setError('');
     const next = { ...sceneForm, [field]: value };
     try {
@@ -1095,6 +1102,7 @@ export default function Ai3DModel() {
   }, [appUser?.id, sceneForm, sceneSettingsRef]);
 
   const fetchAssets = useCallback(async (kind = assetKind, search = assetSearch) => {
+    if (!showId) return;
     setAssetLoading(true);
     setError('');
     try {
@@ -1133,7 +1141,7 @@ export default function Ai3DModel() {
     } finally {
       setAssetLoading(false);
     }
-  }, [assetKind, assetSearch]);
+  }, [assetKind, assetSearch, showId]);
 
   useEffect(() => {
     if (!assetPanelOpen) return;
@@ -1142,6 +1150,10 @@ export default function Ai3DModel() {
 
   const handleAssetUpload = useCallback(async (event) => {
     event.preventDefault();
+    if (!showId) {
+      setError('Show context is missing.');
+      return;
+    }
     if (!assetFile) {
       setError('Choose a file to upload.');
       return;
@@ -1176,9 +1188,10 @@ export default function Ai3DModel() {
     } finally {
       setAssetLoading(false);
     }
-  }, [assetFile, assetKind, assetName, assetSearch, fetchAssets]);
+  }, [assetFile, assetKind, assetName, assetSearch, fetchAssets, showId]);
 
   const applyAssetToForm = useCallback(async (asset) => {
+    if (!showId) return;
     if (!asset) return;
     if (asset.kind === 'texture') {
       if (assetTarget === 'scene-floor') {
@@ -1228,9 +1241,10 @@ export default function Ai3DModel() {
     setAssetPanelOpen(false);
     setPanelMode(assetReturnMode);
     setPanelOpen(true);
-  }, [assetReturnMode, autoSaveField, autoSaveSceneField, panelMode, pushHistory, selectedId, selectedObject]);
+  }, [assetReturnMode, autoSaveField, autoSaveSceneField, panelMode, pushHistory, selectedId, selectedObject, showId]);
 
   const clearAssetSelection = useCallback(async () => {
+    if (!showId) return;
     if (assetTarget === 'scene-floor') {
       setSceneForm((prev) => ({ ...prev, floorTextureUrl: '' }));
       await autoSaveSceneField('floorTextureUrl', '');
@@ -1273,11 +1287,11 @@ export default function Ai3DModel() {
     setAssetPanelOpen(false);
     setPanelMode(assetReturnMode);
     setPanelOpen(true);
-  }, [assetKind, assetReturnMode, assetTarget, autoSaveField, autoSaveSceneField, panelMode, pushHistory, selectedId, selectedObject]);
+  }, [assetKind, assetReturnMode, assetTarget, autoSaveField, autoSaveSceneField, panelMode, pushHistory, selectedId, selectedObject, showId]);
 
   const saveScene = useCallback(async (event) => {
     event.preventDefault();
-    if (!appUser?.id) {
+    if (!appUser?.id || !sceneSettingsRef) {
       setError('You must be signed in to edit the scene.');
       return;
     }
@@ -1307,7 +1321,7 @@ export default function Ai3DModel() {
 
   const saveObject = useCallback(async (event) => {
     event.preventDefault();
-    if (!appUser?.id) {
+    if (!appUser?.id || !objectsCollection || !showId) {
       setError('You must be signed in to add objects.');
       return;
     }
@@ -1374,10 +1388,10 @@ export default function Ai3DModel() {
     } finally {
       setSaving(false);
     }
-  }, [appUser?.id, form, objectsCollection, pushHistory, selectedId, selectedObject]);
+  }, [appUser?.id, form, objectsCollection, pushHistory, selectedId, selectedObject, showId]);
 
   const addDemoBox = useCallback(async () => {
-    if (!appUser?.id) {
+    if (!appUser?.id || !objectsCollection) {
       setError('You must be signed in to add objects.');
       return;
     }
@@ -1405,7 +1419,7 @@ export default function Ai3DModel() {
   }, [appUser?.id, objectsCollection]);
 
   const removeObject = useCallback(async (objectId) => {
-    if (!objectId) return;
+    if (!showId || !objectId) return;
     setError('');
     try {
       const before = objects.find((obj) => obj.id === objectId);
@@ -1420,7 +1434,7 @@ export default function Ai3DModel() {
     } catch (err) {
       setError(err?.message || 'Unable to delete object.');
     }
-  }, [objects, pushHistory, selectedId]);
+  }, [objects, pushHistory, selectedId, showId]);
 
   const clearSelection = useCallback(() => {
     setSelectedId('');
@@ -1430,11 +1444,6 @@ export default function Ai3DModel() {
   const closePanel = useCallback(() => {
     setPanelOpen(false);
   }, []);
-
-  const handleBack = useCallback(() => {
-    if (window.history.length > 2) navigate(-1);
-    else navigate('/settings');
-  }, [navigate]);
 
   const startFly = useCallback((toPos, toTarget, duration = 1200) => {
     const camera = cameraRef.current;
@@ -1588,12 +1597,6 @@ export default function Ai3DModel() {
 
   return (
     <div className={styles.scenePage}>
-      <div className={styles.sceneTopBar}>
-        <button type="button" className={styles.topBarButton} onClick={handleBack}>
-          Back to Show
-        </button>
-      </div>
-
       <div className={styles.sceneShell}>
         <div className={styles.viewerStage} ref={canvasRef} />
 
