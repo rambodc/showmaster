@@ -2,7 +2,7 @@ import React from 'react';
 import AppShell from '../components/AppShell';
 import styles from './Account.module.css';
 import { useNavigate } from 'react-router-dom';
-import { FaChevronRight, FaEnvelope, FaKey } from 'react-icons/fa';
+import { FaChevronRight, FaKey } from 'react-icons/fa';
 
 function Item({ icon: Icon, label, onClick, color = '#111827' }) {
   return (
@@ -29,7 +29,6 @@ export default function Account() {
         <div className={styles.pageInner}>
           <h1 style={{ margin: '0 0 20px', textAlign: 'center' }}>Account</h1>
           <div className={styles.list}>
-            <Item icon={FaEnvelope} color="#22c55e" label="Change Email" onClick={() => navigate('/account/email')} />
             <Item icon={FaKey} color="#f59e0b" label="Change Password" onClick={() => navigate('/account/password')} />
           </div>
         </div>

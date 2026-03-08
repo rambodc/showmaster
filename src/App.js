@@ -19,7 +19,6 @@ import ForgotPassword from './auth/ForgotPassword';
 // Protected pages
 import Home from './home/Home';
 import Account from './account';
-import ChangeEmail from './account/ChangeEmail';
 import ChangePassword from './account/ChangePassword';
 import Settings from './settings/Settings';
 import Profile from './profile/Profile';
@@ -177,14 +176,6 @@ function AppRoutes({ user }) {
           element={
             <ProtectedRoute>
               <Navigate to="/settings" replace />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/account/email"
-          element={
-            <ProtectedRoute>
-              <ChangeEmail />
             </ProtectedRoute>
           }
         />
