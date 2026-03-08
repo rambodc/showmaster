@@ -402,19 +402,37 @@ export default function Ai3DModel() {
     controls.update();
     controls.userData = { autoSpin: false, spinSpeed: 0.003 };
     const transformControls = new TransformControls(camera, renderer.domElement);
+    const styleTransformGizmo = () => {
+      transformControls.traverse((node) => {
+        if (!node?.material) return;
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach((mat) => {
+          mat.depthTest = false;
+          mat.depthWrite = false;
+          mat.transparent = true;
+          mat.toneMapped = false;
+          mat.opacity = Math.max(0.96, Number.isFinite(mat.opacity) ? mat.opacity : 1);
+          mat.needsUpdate = true;
+        });
+        node.renderOrder = 9999;
+      });
+    };
     transformControls.setMode('translate');
     transformControls.showX = true;
     transformControls.showY = false;
     transformControls.showZ = true;
-    transformControls.setSize(1.25);
+    transformControls.setSize(1.9);
     transformControls.setSpace('world');
     scene.add(transformControls);
+    styleTransformGizmo();
 
     transformControls.addEventListener('dragging-changed', (event) => {
       controls.enabled = !event.value;
+      styleTransformGizmo();
     });
 
     transformControls.addEventListener('objectChange', () => {
+      styleTransformGizmo();
       if (transformModeRef.current !== 'scale') return;
       const mesh = transformControls.object;
       if (!mesh) return;
@@ -969,6 +987,19 @@ export default function Ai3DModel() {
   useEffect(() => {
     const transformControls = transformRef.current;
     if (!transformControls) return;
+    transformControls.traverse((node) => {
+      if (!node?.material) return;
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      materials.forEach((mat) => {
+        mat.depthTest = false;
+        mat.depthWrite = false;
+        mat.transparent = true;
+        mat.toneMapped = false;
+        mat.opacity = Math.max(0.96, Number.isFinite(mat.opacity) ? mat.opacity : 1);
+        mat.needsUpdate = true;
+      });
+      node.renderOrder = 9999;
+    });
     transformModeRef.current = transformMode;
     if (transformMode === 'rotate') {
       transformControls.setMode('rotate');
