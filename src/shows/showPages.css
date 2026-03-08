@@ -5,7 +5,7 @@
 
 .show-page-top-nav {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .show-hero-card,
