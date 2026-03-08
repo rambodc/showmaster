@@ -5,7 +5,7 @@ import './AppShell.css';
 
 const defaultNavItems = [
   { label: 'All Shows', to: '/shows', matches: ['/home', '/shows'] },
-  { label: 'Settings', to: '/settings', icon: FiSettings, matches: ['/settings', '/more', '/account', '/username'] },
+  { label: 'Settings', to: '/settings', icon: FiSettings, matches: ['/settings', '/more', '/account'] },
 ];
 
 function isActive(pathname, matches) {

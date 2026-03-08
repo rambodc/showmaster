@@ -226,7 +226,6 @@ export default function Settings() {
           <div className="show-actions">
             <button className="show-btn-outline" type="button" onClick={() => navigate('/account/password')}><FiLock /> Change Password</button>
             <button className="show-btn-outline" type="button" onClick={() => navigate('/account/email')}><FiMail /> Change Email</button>
-            <button className="show-btn-outline" type="button" onClick={() => navigate('/username')}><FiUser /> Edit Username</button>
             <button className="show-btn-danger" type="button" onClick={handleLogout} disabled={loggingOut}>
               <FiLogOut /> {loggingOut ? 'Logging out...' : 'Logout'}
             </button>

@@ -21,7 +21,6 @@ import Home from './home/Home';
 import Account from './account';
 import ChangeEmail from './account/ChangeEmail';
 import ChangePassword from './account/ChangePassword';
-import EditUsername from './account/EditUsername';
 import Settings from './settings/Settings';
 import Profile from './profile/Profile';
 import Updates from './updates/Updates';
@@ -40,22 +39,6 @@ import ProtectedRoute from './ProtectedRoute';
 // App-wide user context (used by Home, etc.)
 export const UserContext = createContext(null);
 export const NoticeContext = createContext({ notify: () => {} });
-
-const normalizeUsername = (value) =>
-  value
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, '')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 24);
-
-const deriveUsername = (data, user) => {
-  const existing = typeof data.username === 'string' && data.username.trim();
-  if (existing) return existing.trim();
-  const emailPart = (user?.email || '').split('@')[0] || '';
-  const candidate = normalizeUsername(emailPart || user?.uid || 'user');
-  if (candidate && candidate.length >= 3) return candidate;
-  return `user_${(user?.uid || '').slice(0, 6) || Math.floor(Math.random() * 9999)}`;
-};
 
 function AppRoutes({ user }) {
   return (
@@ -198,14 +181,6 @@ function AppRoutes({ user }) {
           }
         />
         <Route
-          path="/username"
-          element={
-            <ProtectedRoute>
-              <EditUsername />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/account/email"
           element={
             <ProtectedRoute>
@@ -301,17 +276,6 @@ function App() {
             if (ensuredFirst !== data.firstName) updates.firstName = ensuredFirst;
             if (ensuredLast !== data.lastName) updates.lastName = ensuredLast;
 
-            const existingUsername = typeof data.username === 'string' ? data.username.trim() : '';
-            let finalUsername = existingUsername;
-            if (!existingUsername) {
-              const generated = deriveUsername(data, u);
-              finalUsername = generated;
-              updates.username = generated;
-              updates.usernameNormalized = normalizeUsername(generated);
-            } else if (!data.usernameNormalized) {
-              updates.usernameNormalized = normalizeUsername(existingUsername);
-            }
-
             if (Object.keys(updates).length) {
               const now = serverTimestamp();
               updates.updatedAt = now;
@@ -327,11 +291,6 @@ function App() {
               ...data,
               firstName: typeof data.firstName === 'string' ? data.firstName : '',
               lastName: typeof data.lastName === 'string' ? data.lastName : '',
-              username: finalUsername || existingUsername,
-              usernameNormalized:
-                typeof data.usernameNormalized === 'string'
-                  ? data.usernameNormalized
-                  : normalizeUsername(finalUsername || existingUsername || ''),
               systemRole: typeof data.systemRole === 'string' ? data.systemRole : 'user',
             };
 
