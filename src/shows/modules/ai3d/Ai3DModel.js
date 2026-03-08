@@ -479,6 +479,19 @@ export default function Ai3DModel() {
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
 
+    const resolveSelectableMesh = (node) => {
+      let current = node;
+      while (current) {
+        if (current.userData?.objectId) {
+          if (current.userData.selectable === false) return null;
+          return current;
+        }
+        if (current === objectGroup) break;
+        current = current.parent;
+      }
+      return null;
+    };
+
     const handlePointerDown = (event) => {
       if (viewModeRef.current !== 'select') return;
       if (transformControls.axis) return;
@@ -487,16 +500,25 @@ export default function Ai3DModel() {
       const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       pointer.set(x, y);
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(objectGroup.children, false)
-        .filter((hit) => hit.object?.userData?.selectable !== false);
-      if (!hits.length) {
+      const hits = raycaster.intersectObjects(objectGroup.children, true);
+      const selectableMeshes = [];
+      const seen = new Set();
+      hits.forEach((hit) => {
+        const mesh = resolveSelectableMesh(hit.object);
+        const id = mesh?.userData?.objectId;
+        if (!mesh || !id || seen.has(id)) return;
+        seen.add(id);
+        selectableMeshes.push(mesh);
+      });
+
+      const mesh = selectableMeshes[0];
+      if (!mesh) {
         setSelectedId('');
         transformControls.detach();
         controls.userData.autoSpin = false;
         setAutoSpin(false);
         return;
       }
-      const mesh = hits[0].object;
       const objectId = mesh.userData.objectId;
       if (!objectId) return;
       setSelectedId(objectId);

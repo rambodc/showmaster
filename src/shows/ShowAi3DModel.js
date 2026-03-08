@@ -32,13 +32,7 @@ export default function ShowAi3DModel() {
           </section>
         </AppShell>
       ) : (
-        <AppShell
-          title={ctx.show?.name || 'Show'}
-          navItems={navItems}
-          showBackButton
-        >
-          <Ai3DModel />
-        </AppShell>
+        <Ai3DModel />
       )}
     </ShowRoute>
   );
