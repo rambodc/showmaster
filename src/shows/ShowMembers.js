@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useEffect } from 'react';
@@ -24,6 +24,7 @@ export default function ShowMembers() {
   const [members, setMembers] = useState([]);
   const [queryText, setQueryText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [searchTouched, setSearchTouched] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showRole, setShowRole] = useState('member');
   const [newAccess, setNewAccess] = useState(normalizeModuleAccess({}));
@@ -63,17 +64,53 @@ export default function ShowMembers() {
     [ctx, modules, showId]
   );
 
-  const searchUsers = async () => {
+  const searchUsers = useCallback(async (term) => {
+    const clean = String(term || '').trim();
+    if (clean.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
     setSearching(true);
     try {
       const fn = httpsCallable(functions, 'searchUsers');
-      const result = await fn({ query: queryText, limit: 12, showId });
+      const result = await fn({ query: clean, limit: 12, showId });
       setSearchResults(result.data?.users || []);
     } catch (err) {
       notify(err?.message || 'Failed to search users.', 'error');
     } finally {
       setSearching(false);
     }
+  }, [notify, showId]);
+
+  useEffect(() => {
+    const term = queryText.trim();
+    if (term.length < 2) {
+      setSearchResults([]);
+      setSearching(false);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      searchUsers(term);
+    }, 220);
+
+    return () => window.clearTimeout(timer);
+  }, [queryText, searchUsers]);
+
+  const onSearchInputChange = (value) => {
+    setQueryText(value);
+    setSearchTouched(true);
+    if (selectedUser) {
+      setSelectedUser(null);
+    }
+  };
+
+  const pickUser = (user) => {
+    setSelectedUser(user);
+    setQueryText(user.email || user.uid || '');
+    setSearchTouched(false);
+    setSearchResults([]);
   };
 
   const assignUser = async () => {
@@ -167,27 +204,39 @@ export default function ShowMembers() {
           <section className="show-card" style={{ padding: 16 }}>
             <h3 style={{ marginTop: 0 }}>Add existing user to show</h3>
             <div className="form-grid">
-              <input
-                value={queryText}
-                onChange={(e) => setQueryText(e.target.value)}
-                placeholder="Search by name, email, or uid"
-              />
-              <button className="show-btn-outline" type="button" onClick={searchUsers} disabled={searching}>
-                {searching ? 'Searching...' : 'Search Users'}
-              </button>
-            </div>
-            <div className="members-grid" style={{ marginTop: 10 }}>
-              {searchResults.map((u) => (
-                <button
-                  key={u.uid}
-                  type="button"
-                  className="show-btn-outline"
-                  onClick={() => setSelectedUser(u)}
-                  style={{ textAlign: 'left' }}
-                >
-                  {(u.firstName || '') + ' ' + (u.lastName || '')} - {u.email}
-                </button>
-              ))}
+              <div className="search-combobox">
+                <input
+                  value={queryText}
+                  onChange={(e) => onSearchInputChange(e.target.value)}
+                  placeholder="Search by name, email, or uid"
+                />
+                {searchTouched ? (
+                  <div className="search-combobox-dropdown">
+                    {searching ? <p className="info-note">Searching...</p> : null}
+                    {!searching && queryText.trim().length < 2 ? (
+                      <p className="info-note">Type at least 2 characters to search users.</p>
+                    ) : null}
+                    {!searching && queryText.trim().length >= 2 && searchResults.length === 0 ? (
+                      <p className="info-note">No matching users found.</p>
+                    ) : null}
+                    {!searching && searchResults.length > 0 ? (
+                      <div className="members-grid">
+                        {searchResults.map((u) => (
+                          <button
+                            key={u.uid}
+                            type="button"
+                            className="show-btn-outline"
+                            onClick={() => pickUser(u)}
+                            style={{ textAlign: 'left' }}
+                          >
+                            {(u.firstName || '') + ' ' + (u.lastName || '')} - {u.email}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             {selectedUser ? (

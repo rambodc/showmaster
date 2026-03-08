@@ -229,6 +229,21 @@
   gap: 8px;
 }
 
+.search-combobox {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.search-combobox-dropdown {
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
 .form-grid input,
 .form-grid select,
 .form-grid textarea {
