@@ -7,6 +7,10 @@ import { UserContext } from '../App';
 import { db } from '../firebase';
 import './Home.css';
 
+function getShowIconUrl(show) {
+  return show?.iconUrls?.sm || show?.iconUrls?.md || show?.iconUrls?.lg || show?.iconUrl || '';
+}
+
 function Home() {
   const appUser = useContext(UserContext);
   const navigate = useNavigate();
@@ -60,8 +64,8 @@ function Home() {
                 <button key={show.id} type="button" className="show-row" onClick={() => navigate(`/shows/${show.id}/workspace`)}>
                   <div className="show-row-main">
                     <div className="show-row-icon-wrap">
-                      {show?.iconUrls?.sm ? (
-                        <img src={show.iconUrls.sm} alt="" className="show-row-icon-image" />
+                      {getShowIconUrl(show) ? (
+                        <img src={getShowIconUrl(show)} alt="" className="show-row-icon-image" />
                       ) : (
                         <FiImage size={18} />
                       )}

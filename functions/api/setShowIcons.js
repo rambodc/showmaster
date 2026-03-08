@@ -29,6 +29,7 @@ export const setShowIcons = onCall({ region: 'us-central1' }, async (request) =>
 
   await db.collection('shows').doc(showId).set({
     iconUrls,
+    iconUrl: iconUrls.md || iconUrls.sm || iconUrls.lg || null,
     iconUpdatedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });

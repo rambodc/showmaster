@@ -74,6 +74,10 @@ async function buildSquareIconBlob(img, size) {
   return canvasToBlob(canvas, 'image/webp', 0.92);
 }
 
+function getShowIconUrl(show) {
+  return show?.iconUrls?.md || show?.iconUrls?.sm || show?.iconUrls?.lg || show?.iconUrl || '';
+}
+
 export default function Settings() {
   const navigate = useNavigate();
   const appUser = useContext(UserContext);
@@ -170,24 +174,32 @@ export default function Settings() {
       const createFn = httpsCallable(functions, 'createShow');
       const result = await createFn({ name: showForm.name, description: showForm.description });
       const newShowId = result?.data?.showId;
+      let iconSaveError = null;
       if (newShowId && showImageFile) {
-        const img = await fileToImage(showImageFile);
-        const iconUrls = {};
-        for (const { key, size } of SHOW_ICON_SIZES) {
-          const blob = await buildSquareIconBlob(img, size);
-          const ext = blob.type === 'image/webp' ? 'webp' : 'png';
-          const iconRef = ref(storage, `shows/${newShowId}/icons/${key}-${Date.now()}.${ext}`);
-          await uploadBytes(iconRef, blob, {
-            contentType: blob.type || 'image/webp',
-            cacheControl: 'public,max-age=31536000,immutable',
-          });
-          iconUrls[key] = await getDownloadURL(iconRef);
-        }
+        try {
+          const img = await fileToImage(showImageFile);
+          const iconUrls = {};
+          for (const { key, size } of SHOW_ICON_SIZES) {
+            const blob = await buildSquareIconBlob(img, size);
+            const ext = blob.type === 'image/webp' ? 'webp' : 'png';
+            const iconRef = ref(storage, `shows/${newShowId}/icons/${key}-${Date.now()}.${ext}`);
+            await uploadBytes(iconRef, blob, {
+              contentType: blob.type || 'image/webp',
+              cacheControl: 'public,max-age=31536000,immutable',
+            });
+            iconUrls[key] = await getDownloadURL(iconRef);
+          }
 
-        const setShowIconsFn = httpsCallable(functions, 'setShowIcons');
-        await setShowIconsFn({ showId: newShowId, iconUrls });
+          const setShowIconsFn = httpsCallable(functions, 'setShowIcons');
+          await setShowIconsFn({ showId: newShowId, iconUrls });
+        } catch (iconErr) {
+          iconSaveError = iconErr;
+        }
       }
       notify(`Show created${newShowId ? `: ${newShowId}` : ''}`, 'success');
+      if (iconSaveError) {
+        notify(iconSaveError?.message || 'Show icon upload succeeded, but assigning icon URLs failed.', 'error');
+      }
       setShowForm({ name: '', description: '' });
       setShowImageFile(null);
     } catch (err) {
@@ -317,36 +329,28 @@ export default function Settings() {
 
               <div className="members-grid" style={{ marginTop: 10 }}>
                 {shows.map((show) => (
-                  <article className="member-card" key={show.id}>
-                    <div className="switch-row" style={{ justifyContent: 'flex-start', gap: 10 }}>
-                      <div
-                        style={{
-                          width: 46,
-                          height: 46,
-                          borderRadius: 12,
-                          border: '1px solid #bae6fd',
-                          background: '#f0f9ff',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {show?.iconUrls?.sm ? (
-                          <img src={show.iconUrls.sm} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <FiImage size={16} color="#0284c7" />
-                        )}
-                      </div>
-                      <strong>{show.name || show.id}</strong>
+                  <button
+                    type="button"
+                    className="member-card show-compact-row"
+                    key={show.id}
+                    onClick={() => navigate(`/shows/${show.id}/workspace`)}
+                  >
+                    <div className="show-compact-row-icon">
+                      {getShowIconUrl(show) ? (
+                        <img src={getShowIconUrl(show)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <FiImage size={16} color="#0284c7" />
+                      )}
                     </div>
-                    <p className="info-note">{show.description || 'No description'}</p>
-                    <div className="switch-row"><span>Status</span><span>{show.status || 'active'}</span></div>
-                    <div className="switch-row"><span>Owner</span><span>{show.ownerEmail || show.ownerId || '-'}</span></div>
-                    <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${show.id}/workspace`)}>
-                      Open Show
-                    </button>
-                  </article>
+                    <div className="show-compact-row-main">
+                      <strong>{show.name || show.id}</strong>
+                      <p className="info-note">{show.description || 'No description'}</p>
+                      <div className="show-compact-meta">
+                        <span>Status: {show.status || 'active'}</span>
+                        <span>Owner: {show.ownerEmail || show.ownerId || '-'}</span>
+                      </div>
+                    </div>
+                  </button>
                 ))}
               </div>
             </>

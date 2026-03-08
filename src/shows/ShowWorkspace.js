@@ -1,11 +1,16 @@
 import React, { useContext, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { FiImage } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
 import { buildShowNavItems, canAccessModule, getModuleDescription, getModuleIcon, MODULE_META, useShowContext } from '../services/accessPolicy';
 import useShowModules, { getModuleRoute } from './useShowModules';
 import './showPages.css';
+
+function getShowIconUrl(show) {
+  return show?.iconUrls?.md || show?.iconUrls?.sm || show?.iconUrls?.lg || show?.iconUrl || '';
+}
 
 export default function ShowWorkspace() {
   const { showId } = useParams();
@@ -20,6 +25,7 @@ export default function ShowWorkspace() {
   );
 
   const visibleModules = modules.filter((m) => canAccessModule({ moduleKey: m.key, moduleEnabled: m.enabled, ctx }));
+  const showIconUrl = getShowIconUrl(ctx.show);
 
   return (
     <ShowRoute permission="view_show">
@@ -31,10 +37,21 @@ export default function ShowWorkspace() {
         <div className="show-page-stack">
           <section className="show-hero-card">
             <span className="show-chip">Show Workspace</span>
-            <h2 className="show-title">{ctx.show?.name || 'Untitled Show'}</h2>
-            <p className="show-subtitle">
-              Run operations across modules with role-aware access and show-scoped data.
-            </p>
+            <div className="show-identity-row">
+              <div className="show-identity-icon">
+                {showIconUrl ? (
+                  <img src={showIconUrl} alt="" />
+                ) : (
+                  <FiImage size={22} />
+                )}
+              </div>
+              <div>
+                <h2 className="show-title">{ctx.show?.name || 'Untitled Show'}</h2>
+                <p className="show-subtitle">
+                  {ctx.show?.description || 'Run operations across modules with role-aware access and show-scoped data.'}
+                </p>
+              </div>
+            </div>
             <div className="show-actions">
               {(ctx.isSuperAdmin || ctx.isShowAdmin) ? (
                 <button className="show-btn" type="button" onClick={() => navigate(`/shows/${showId}/members`)}>Manage Access</button>
