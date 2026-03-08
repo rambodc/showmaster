@@ -88,6 +88,7 @@ export default function Ai3DModel() {
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
   const transformRef = useRef(null);
+  const transformHelperRef = useRef(null);
   const selectionBoxRef = useRef(null);
   const textureLoaderRef = useRef(new THREE.TextureLoader());
   const gltfLoaderRef = useRef(new GLTFLoader());
@@ -408,7 +409,10 @@ export default function Ai3DModel() {
     transformControls.showZ = true;
     transformControls.setSize(1.9);
     transformControls.setSpace('world');
-    scene.add(transformControls);
+    const transformHelper = typeof transformControls.getHelper === 'function'
+      ? transformControls.getHelper()
+      : transformControls;
+    scene.add(transformHelper);
 
     transformControls.addEventListener('dragging-changed', (event) => {
       controls.enabled = !event.value;
@@ -638,6 +642,7 @@ export default function Ai3DModel() {
     cameraRef.current = camera;
     controlsRef.current = controls;
     transformRef.current = transformControls;
+    transformHelperRef.current = transformHelper;
 
     return () => {
       renderer.domElement.removeEventListener('pointerdown', handlePointerDown);
@@ -646,6 +651,9 @@ export default function Ai3DModel() {
       window.removeEventListener('resize', resize);
       controls.dispose();
       transformControls.dispose();
+      if (transformHelperRef.current?.parent) {
+        transformHelperRef.current.parent.remove(transformHelperRef.current);
+      }
       renderer.dispose();
       container.removeChild(renderer.domElement);
       meshMapRef.current.forEach((mesh) => {
@@ -663,6 +671,7 @@ export default function Ai3DModel() {
       rendererRef.current = null;
       cameraRef.current = null;
       controlsRef.current = null;
+      transformHelperRef.current = null;
     };
   }, [showId]);
 
