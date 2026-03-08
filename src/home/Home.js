@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { collection, collectionGroup, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { FiImage, FiRadio } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import { UserContext } from '../App';
 import { db } from '../firebase';
@@ -60,11 +61,20 @@ function Home() {
             <div className="shows-grid">
               {visibleShows.map((show) => (
                 <button key={show.id} type="button" className="show-row" onClick={() => navigate(`/shows/${show.id}/workspace`)}>
-                  <div>
-                    <strong>{show.name || 'Untitled Show'}</strong>
-                    <p>{show.description || 'No description'}</p>
+                  <div className="show-row-main">
+                    <div className="show-row-icon-wrap">
+                      {show?.iconUrls?.sm ? (
+                        <img src={show.iconUrls.sm} alt="" className="show-row-icon-image" />
+                      ) : (
+                        <FiImage size={18} />
+                      )}
+                    </div>
+                    <div>
+                      <strong>{show.name || 'Untitled Show'}</strong>
+                      <p>{show.description || 'No description'}</p>
+                    </div>
                   </div>
-                  <span>{show.status || 'active'}</span>
+                  <span><FiRadio size={13} /> {show.status || 'active'}</span>
                 </button>
               ))}
             </div>

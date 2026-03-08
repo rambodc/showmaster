@@ -28,6 +28,13 @@ export default function ShowMembers() {
   const [saving, setSaving] = useState(false);
   const [updatingMemberId, setUpdatingMemberId] = useState('');
   const [removingMemberId, setRemovingMemberId] = useState('');
+  const showLevelAccess = useMemo(() => {
+    const defaultAccess = {};
+    modules.forEach((m) => {
+      defaultAccess[m.key] = Boolean(m.enabled);
+    });
+    return normalizeModuleAccess(defaultAccess);
+  }, [modules]);
 
   useEffect(() => {
     if (!showId) return undefined;
@@ -39,12 +46,14 @@ export default function ShowMembers() {
   }, [showId]);
 
   useEffect(() => {
-    const defaultAccess = {};
-    modules.forEach((m) => {
-      defaultAccess[m.key] = Boolean(m.enabled);
-    });
-    setNewAccess(normalizeModuleAccess(defaultAccess));
-  }, [modules]);
+    setNewAccess(showLevelAccess);
+  }, [showLevelAccess]);
+
+  useEffect(() => {
+    if (showRole === 'show_admin') {
+      setNewAccess(showLevelAccess);
+    }
+  }, [showRole, showLevelAccess]);
 
   const navItems = useMemo(
     () => buildShowNavItems({ showId, modules, ctx }),
@@ -73,7 +82,7 @@ export default function ShowMembers() {
         showId,
         userId: selectedUser.uid,
         showRole,
-        moduleAccess: normalizeModuleAccess(newAccess),
+        moduleAccess: showRole === 'show_admin' ? showLevelAccess : normalizeModuleAccess(newAccess),
       });
       setSelectedUser(null);
       setQueryText('');
@@ -84,6 +93,17 @@ export default function ShowMembers() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleMemberRoleChange = async (member, nextRole) => {
+    if (nextRole === 'show_admin') {
+      await updateMember(member, {
+        showRole: nextRole,
+        moduleAccess: showLevelAccess,
+      });
+      return;
+    }
+    await updateMember(member, { showRole: nextRole });
   };
 
   const updateMember = async (member, updates) => {
@@ -173,8 +193,8 @@ export default function ShowMembers() {
                       </span>
                       <input
                         type="checkbox"
-                        checked={moduleEnabled && Boolean(newAccess[key])}
-                        disabled={!moduleEnabled}
+                        checked={showRole === 'show_admin' ? moduleEnabled : moduleEnabled && Boolean(newAccess[key])}
+                        disabled={showRole === 'show_admin' || !moduleEnabled}
                         onChange={() => setNewAccess((prev) => ({ ...prev, [key]: !prev[key] }))}
                       />
                     </label>
@@ -199,7 +219,7 @@ export default function ShowMembers() {
                   <span>Show Role</span>
                   <select
                     value={m.showRole || 'member'}
-                    onChange={(e) => updateMember(m, { showRole: e.target.value })}
+                    onChange={(e) => handleMemberRoleChange(m, e.target.value)}
                     disabled={ctx.show?.ownerId === m.id || updatingMemberId === m.id || removingMemberId === m.id}
                   >
                     <option value="member">member</option>
@@ -228,8 +248,8 @@ export default function ShowMembers() {
                       </span>
                       <input
                         type="checkbox"
-                        checked={moduleEnabled && Boolean(m?.moduleAccess?.[key])}
-                        disabled={ctx.show?.ownerId === m.id || !moduleEnabled || updatingMemberId === m.id || removingMemberId === m.id}
+                        checked={(m.showRole === 'show_admin') ? moduleEnabled : moduleEnabled && Boolean(m?.moduleAccess?.[key])}
+                        disabled={ctx.show?.ownerId === m.id || m.showRole === 'show_admin' || !moduleEnabled || updatingMemberId === m.id || removingMemberId === m.id}
                         onChange={() =>
                           updateMember(m, {
                             moduleAccess: normalizeModuleAccess({ ...m.moduleAccess, [key]: !m?.moduleAccess?.[key] }),

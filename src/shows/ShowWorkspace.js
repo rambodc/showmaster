@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
-import { buildShowNavItems, canAccessModule, MODULE_META, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessModule, getModuleDescription, getModuleIcon, MODULE_META, useShowContext } from '../services/accessPolicy';
 import useShowModules, { getModuleRoute } from './useShowModules';
 import './showPages.css';
 
@@ -53,13 +53,20 @@ export default function ShowWorkspace() {
               </article>
             ) : (
               visibleModules.map((mod) => (
-                <article className="module-tile" key={mod.key}>
-                  <h3>{MODULE_META[mod.key]?.label || mod.label || mod.key}</h3>
-                  <p className="module-meta">Module configured for this show.</p>
-                  <button className="show-btn" type="button" onClick={() => navigate(getModuleRoute(showId, mod.key))}>
-                    Open Module
-                  </button>
-                </article>
+                <button
+                  type="button"
+                  className="module-tile module-tile-button"
+                  key={mod.key}
+                  onClick={() => navigate(getModuleRoute(showId, mod.key))}
+                >
+                  <div className="module-tile-icon">
+                    {React.createElement(getModuleIcon(mod.key), { size: 30 })}
+                  </div>
+                  <div className="module-tile-content">
+                    <h3>{MODULE_META[mod.key]?.label || mod.label || mod.key}</h3>
+                    <p className="module-meta">{getModuleDescription(mod.key)}</p>
+                  </div>
+                </button>
               ))
             )}
           </section>

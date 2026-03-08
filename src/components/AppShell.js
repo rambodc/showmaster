@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiMenu, FiX } from 'react-icons/fi';
+import { FiMenu, FiSettings, FiX } from 'react-icons/fi';
 import './AppShell.css';
 
 const defaultNavItems = [
   { label: 'All Shows', to: '/shows', matches: ['/home', '/shows'] },
-  { label: 'Settings', to: '/settings', matches: ['/settings', '/more', '/account', '/username'] },
+  { label: 'Settings', to: '/settings', icon: FiSettings, matches: ['/settings', '/more', '/account', '/username'] },
 ];
 
 function isActive(pathname, matches) {
@@ -18,7 +18,6 @@ export default function AppShell({
   navItems,
   showMenuButton = true,
   showBackButton = false,
-  backTo = '/shows',
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -54,11 +53,6 @@ export default function AppShell({
     <div className="app-shell">
       <aside className="app-shell-sidebar">
         <div className="app-shell-brand-row">
-          {showBackButton ? (
-            <button type="button" className="app-shell-icon-btn" onClick={() => navigate(backTo)} aria-label="Back to all shows">
-              <FiArrowLeft />
-            </button>
-          ) : null}
           <div className="app-shell-brand">{brandTitle}</div>
         </div>
         {renderNav()}
@@ -69,19 +63,6 @@ export default function AppShell({
       <aside className={mobileOpen ? 'app-shell-drawer open' : 'app-shell-drawer'}>
         <div className="app-shell-drawer-top">
           <div className="app-shell-drawer-title-row">
-            {showBackButton ? (
-              <button
-                type="button"
-                className="app-shell-icon-btn"
-                onClick={() => {
-                  navigate(backTo);
-                  setMobileOpen(false);
-                }}
-                aria-label="Back to all shows"
-              >
-                <FiArrowLeft />
-              </button>
-            ) : null}
             <strong>{title}</strong>
           </div>
           <button type="button" className="app-shell-icon-btn" onClick={() => setMobileOpen(false)}>
@@ -97,10 +78,6 @@ export default function AppShell({
             {showMenuButton ? (
               <button type="button" className="app-shell-icon-btn" onClick={() => setMobileOpen(true)}>
                 <FiMenu />
-              </button>
-            ) : showBackButton ? (
-              <button type="button" className="app-shell-icon-btn" onClick={() => navigate(backTo)}>
-                <FiArrowLeft />
               </button>
             ) : (
               <span style={{ width: 34 }} />

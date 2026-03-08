@@ -87,6 +87,43 @@
   gap: 8px;
 }
 
+.module-tile-button {
+  width: 100%;
+  text-align: left;
+  grid-template-columns: 68px 1fr;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.module-tile-button:hover {
+  transform: translateY(-2px);
+  border-color: #bae6fd;
+  box-shadow: 0 12px 28px rgba(14, 116, 144, 0.16);
+}
+
+.module-tile-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #e0f2fe, #f0f9ff);
+  color: #0369a1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bae6fd;
+}
+
+.module-tile-content {
+  display: grid;
+  gap: 6px;
+}
+
+.module-tile-content h3 {
+  margin: 0;
+}
+
 .module-meta {
   color: #64748b;
   margin: 0;

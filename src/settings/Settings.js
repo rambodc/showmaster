@@ -3,12 +3,76 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { FiLock, FiMail, FiLogOut, FiUser, FiHash, FiUserPlus, FiShield, FiLayers } from 'react-icons/fi';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import {
+  FiHash,
+  FiImage,
+  FiLayers,
+  FiLock,
+  FiLogOut,
+  FiMail,
+  FiShield,
+  FiUpload,
+  FiUser,
+  FiUserPlus,
+} from 'react-icons/fi';
 import AppShell from '../components/AppShell';
-import { auth, db, functions } from '../firebase';
+import { auth, db, functions, storage } from '../firebase';
 import { NoticeContext, UserContext } from '../App';
-import { MODULE_KEYS, MODULE_META, normalizeModuleAccess } from '../services/accessPolicy';
+import { getModuleIcon, MODULE_KEYS, MODULE_META, normalizeModuleAccess } from '../services/accessPolicy';
 import '../shows/showPages.css';
+
+const SHOW_ICON_SIZES = [
+  { key: 'sm', size: 64 },
+  { key: 'md', size: 128 },
+  { key: 'lg', size: 256 },
+];
+
+function fileToImage(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Could not load the selected image.'));
+    };
+    img.src = objectUrl;
+  });
+}
+
+function canvasToBlob(canvas, type = 'image/webp', quality = 0.92) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob);
+        return;
+      }
+      reject(new Error('Failed to process image.'));
+    }, type, quality);
+  });
+}
+
+async function buildSquareIconBlob(img, size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas not available.');
+
+  const srcW = img.naturalWidth || img.width;
+  const srcH = img.naturalHeight || img.height;
+  const srcSize = Math.min(srcW, srcH);
+  const sx = Math.floor((srcW - srcSize) / 2);
+  const sy = Math.floor((srcH - srcSize) / 2);
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
+  return canvasToBlob(canvas, 'image/webp', 0.92);
+}
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -27,7 +91,19 @@ export default function Settings() {
   const [showRole, setShowRole] = useState('member');
   const [moduleAccess, setModuleAccess] = useState(normalizeModuleAccess({}));
   const [showForm, setShowForm] = useState({ name: '', description: '' });
+  const [showImageFile, setShowImageFile] = useState(null);
+  const [showImagePreview, setShowImagePreview] = useState('');
   const [creatingShow, setCreatingShow] = useState(false);
+
+  useEffect(() => {
+    if (!showImageFile) {
+      setShowImagePreview('');
+      return undefined;
+    }
+    const objectUrl = URL.createObjectURL(showImageFile);
+    setShowImagePreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [showImageFile]);
 
   useEffect(() => {
     if (!isSuperAdmin) {
@@ -91,11 +167,29 @@ export default function Settings() {
     if (!isSuperAdmin || !showForm.name.trim()) return;
     setCreatingShow(true);
     try {
-      const fn = httpsCallable(functions, 'createShow');
-      const result = await fn({ name: showForm.name, description: showForm.description });
+      const createFn = httpsCallable(functions, 'createShow');
+      const result = await createFn({ name: showForm.name, description: showForm.description });
       const newShowId = result?.data?.showId;
+      if (newShowId && showImageFile) {
+        const img = await fileToImage(showImageFile);
+        const iconUrls = {};
+        for (const { key, size } of SHOW_ICON_SIZES) {
+          const blob = await buildSquareIconBlob(img, size);
+          const ext = blob.type === 'image/webp' ? 'webp' : 'png';
+          const iconRef = ref(storage, `shows/${newShowId}/icons/${key}-${Date.now()}.${ext}`);
+          await uploadBytes(iconRef, blob, {
+            contentType: blob.type || 'image/webp',
+            cacheControl: 'public,max-age=31536000,immutable',
+          });
+          iconUrls[key] = await getDownloadURL(iconRef);
+        }
+
+        const setShowIconsFn = httpsCallable(functions, 'setShowIcons');
+        await setShowIconsFn({ showId: newShowId, iconUrls });
+      }
       notify(`Show created${newShowId ? `: ${newShowId}` : ''}`, 'success');
       setShowForm({ name: '', description: '' });
+      setShowImageFile(null);
     } catch (err) {
       notify(err?.message || 'Failed to create show.', 'error');
     } finally {
@@ -127,11 +221,9 @@ export default function Settings() {
           </div>
         </section>
 
-        <section className="show-card" style={{ padding: 16 }}>
-          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}><FiUserPlus /> Internal User Provisioning</h3>
-          {!isSuperAdmin ? (
-            <p className="info-note">Only super admins can create users and assign show access.</p>
-          ) : (
+        {isSuperAdmin ? (
+          <section className="show-card" style={{ padding: 16 }}>
+            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}><FiUserPlus /> Internal User Provisioning</h3>
             <>
               <form className="form-grid" onSubmit={createUser}>
                 <input value={form.firstName} onChange={(e) => onFormChange('firstName', e.target.value)} placeholder="First name" required />
@@ -156,7 +248,10 @@ export default function Settings() {
                     <div className="show-card" style={{ padding: 10 }}>
                       {MODULE_KEYS.map((key) => (
                         <label className="switch-row" key={key}>
-                          <span>{MODULE_META[key]?.label || key}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            {React.createElement(getModuleIcon(key), { size: 15 })}
+                            {MODULE_META[key]?.label || key}
+                          </span>
                           <input
                             type="checkbox"
                             checked={Boolean(moduleAccess[key])}
@@ -172,14 +267,12 @@ export default function Settings() {
                 </div>
               ) : null}
             </>
-          )}
-        </section>
+          </section>
+        ) : null}
 
-        <section className="show-card" style={{ padding: 16 }}>
-          <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}><FiLayers /> Show Administration</h3>
-          {!isSuperAdmin ? (
-            <p className="info-note">Only super admins can create shows.</p>
-          ) : (
+        {isSuperAdmin ? (
+          <section className="show-card" style={{ padding: 16 }}>
+            <h3 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}><FiLayers /> Show Administration</h3>
             <>
               <form className="form-grid" onSubmit={createShow}>
                 <input
@@ -194,6 +287,29 @@ export default function Settings() {
                   onChange={(e) => setShowForm((prev) => ({ ...prev, description: e.target.value }))}
                   placeholder="Description (optional)"
                 />
+                <label className="switch-row" style={{ justifyContent: 'flex-start', gap: 10 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <FiUpload />
+                    Show icon image
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(e) => setShowImageFile(e.target.files?.[0] || null)}
+                  />
+                </label>
+                {showImagePreview ? (
+                  <div className="switch-row" style={{ justifyContent: 'flex-start', gap: 10 }}>
+                    <img
+                      src={showImagePreview}
+                      alt="Show icon preview"
+                      style={{ width: 58, height: 58, borderRadius: 14, objectFit: 'cover', border: '1px solid #bae6fd' }}
+                    />
+                    <p className="info-note" style={{ margin: 0 }}>
+                      We will generate 64px, 128px, and 256px square icons automatically.
+                    </p>
+                  </div>
+                ) : null}
                 <button className="show-btn" type="submit" disabled={creatingShow}>
                   {creatingShow ? 'Creating...' : 'Create Show'}
                 </button>
@@ -202,7 +318,28 @@ export default function Settings() {
               <div className="members-grid" style={{ marginTop: 10 }}>
                 {shows.map((show) => (
                   <article className="member-card" key={show.id}>
-                    <strong>{show.name || show.id}</strong>
+                    <div className="switch-row" style={{ justifyContent: 'flex-start', gap: 10 }}>
+                      <div
+                        style={{
+                          width: 46,
+                          height: 46,
+                          borderRadius: 12,
+                          border: '1px solid #bae6fd',
+                          background: '#f0f9ff',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {show?.iconUrls?.sm ? (
+                          <img src={show.iconUrls.sm} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <FiImage size={16} color="#0284c7" />
+                        )}
+                      </div>
+                      <strong>{show.name || show.id}</strong>
+                    </div>
                     <p className="info-note">{show.description || 'No description'}</p>
                     <div className="switch-row"><span>Status</span><span>{show.status || 'active'}</span></div>
                     <div className="switch-row"><span>Owner</span><span>{show.ownerEmail || show.ownerId || '-'}</span></div>
@@ -213,8 +350,8 @@ export default function Settings() {
                 ))}
               </div>
             </>
-          )}
-        </section>
+          </section>
+        ) : null}
       </div>
     </AppShell>
   );

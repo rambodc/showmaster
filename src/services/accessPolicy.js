@@ -1,9 +1,26 @@
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
+import { FiArchive, FiCpu, FiHardDrive, FiShield, FiUsers } from 'react-icons/fi';
 import { db } from '../firebase';
 import { MODULE_KEYS, MODULE_META } from './moduleCatalog';
 
 export { MODULE_KEYS, MODULE_META };
+
+const MODULE_ICON_MAP = {
+  security: FiShield,
+  carps: FiArchive,
+  inventory: FiHardDrive,
+  artists: FiUsers,
+  ai3d: FiCpu,
+};
+
+export function getModuleIcon(moduleKey) {
+  return MODULE_ICON_MAP[moduleKey] || FiArchive;
+}
+
+export function getModuleDescription(moduleKey) {
+  return MODULE_META[moduleKey]?.description || 'Module configured for this show.';
+}
 
 export function normalizeModuleAccess(input = {}) {
   const out = {};
@@ -94,10 +111,10 @@ export function buildShowPath(showName, moduleKey) {
 }
 
 export function buildShowNavItems({ showId, modules, ctx }) {
-  const workspace = {
-    label: 'Workspace',
-    to: `/shows/${showId}/workspace`,
-    matches: [`/shows/${showId}/workspace`],
+  const allShows = {
+    label: 'All Shows',
+    to: '/shows',
+    matches: ['/shows', '/home'],
   };
 
   const moduleItems = (modules || [])
@@ -106,12 +123,13 @@ export function buildShowNavItems({ showId, modules, ctx }) {
       const route = MODULE_META[m.key]?.route || m.key;
       return {
         label: MODULE_META[m.key]?.label || m.name || m.key,
+        icon: getModuleIcon(m.key),
         to: `/shows/${showId}/${route}`,
         matches: [`/shows/${showId}/${route}`],
       };
     });
 
-  return [workspace, ...moduleItems];
+  return [allShows, ...moduleItems];
 }
 
 export function hasShowPermission(ctx, permission) {
