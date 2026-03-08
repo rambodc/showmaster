@@ -4,15 +4,16 @@ import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
-import { UserContext } from '../App';
+import { NoticeContext, UserContext } from '../App';
 import { db } from '../firebase';
-import { buildShowNavItems, buildShowPath, canAccessModule, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessModule, useShowContext } from '../services/accessPolicy';
 import useShowModules from './useShowModules';
 import './showPages.css';
 
 export default function ShowInventory() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
+  const { notify } = useContext(NoticeContext);
   const ctx = useShowContext({ showId, appUser });
   const modules = useShowModules(showId);
   const [items, setItems] = useState([]);
@@ -21,6 +22,7 @@ export default function ShowInventory() {
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [updatingId, setUpdatingId] = useState('');
 
   useEffect(() => {
     if (!showId) return undefined;
@@ -52,27 +54,48 @@ export default function ShowInventory() {
       setName('');
       setQuantity(1);
       setNotes('');
+      notify('Inventory item added.', 'success');
+    } catch (err) {
+      notify(err?.message || 'Failed to add inventory item.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const toggleStatus = async (item) => {
-    const next = item.status === 'in_stock' ? 'used' : 'in_stock';
-    await updateDoc(doc(db, 'shows', showId, 'inventoryItems', item.id), {
-      status: next,
-      updatedAt: serverTimestamp(),
-    });
+    setUpdatingId(item.id);
+    try {
+      const next = item.status === 'in_stock' ? 'used' : 'in_stock';
+      await updateDoc(doc(db, 'shows', showId, 'inventoryItems', item.id), {
+        status: next,
+        updatedAt: serverTimestamp(),
+      });
+      notify('Inventory status updated.', 'success');
+    } catch (err) {
+      notify(err?.message || 'Failed to update status.', 'error');
+    } finally {
+      setUpdatingId('');
+    }
+  };
+
+  const removeItem = async (item) => {
+    setUpdatingId(item.id);
+    try {
+      await deleteDoc(doc(db, 'shows', showId, 'inventoryItems', item.id));
+      notify('Inventory item deleted.', 'success');
+    } catch (err) {
+      notify(err?.message || 'Failed to delete item.', 'error');
+    } finally {
+      setUpdatingId('');
+    }
   };
 
   return (
     <ShowRoute permission="view_show">
       <AppShell
-        title="Inventory"
-        titlePath={buildShowPath(ctx.show?.name, 'inventory')}
+        title={ctx.show?.name || 'Show'}
         navItems={navItems}
-        showMenuButton
-        showSettingsButton
+        showBackButton
       >
         {!hasAccess ? (
           <section className="show-hero-card">
@@ -105,11 +128,21 @@ export default function ShowInventory() {
                     <p className="info-note">{item.notes || 'No notes'}</p>
                   </div>
                   <div className="show-actions" style={{ marginTop: 0 }}>
-                    <button className="show-btn-outline" type="button" onClick={() => toggleStatus(item)}>
-                      Mark {item.status === 'in_stock' ? 'Used' : 'In Stock'}
+                    <button
+                      className="show-btn-outline"
+                      type="button"
+                      onClick={() => toggleStatus(item)}
+                      disabled={updatingId === item.id}
+                    >
+                      {updatingId === item.id ? 'Saving...' : `Mark ${item.status === 'in_stock' ? 'Used' : 'In Stock'}`}
                     </button>
-                    <button className="show-btn-danger" type="button" onClick={() => deleteDoc(doc(db, 'shows', showId, 'inventoryItems', item.id))}>
-                      Delete
+                    <button
+                      className="show-btn-danger"
+                      type="button"
+                      onClick={() => removeItem(item)}
+                      disabled={updatingId === item.id}
+                    >
+                      {updatingId === item.id ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </article>

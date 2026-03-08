@@ -46,6 +46,34 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.global-notice {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  min-width: 280px;
+  max-width: min(92vw, 640px);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(4px);
+}
+
+.global-notice.info {
+  background: rgba(3, 105, 161, 0.95);
+}
+
+.global-notice.success {
+  background: rgba(22, 163, 74, 0.95);
+}
+
+.global-notice.error {
+  background: rgba(220, 38, 38, 0.95);
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-weight: var(--font-weight-bold);
 }

@@ -46,10 +46,8 @@ function Home() {
 
   return (
     <AppShell
-      title="Shows"
-      titlePath="shows"
+      title="All Shows"
       showMenuButton={false}
-      showSettingsButton
     >
       <div className="shows-layout">
         <section className="shows-list-card">

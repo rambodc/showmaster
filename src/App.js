@@ -39,6 +39,7 @@ import ProtectedRoute from './ProtectedRoute';
 
 // App-wide user context (used by Home, etc.)
 export const UserContext = createContext(null);
+export const NoticeContext = createContext({ notify: () => {} });
 
 const normalizeUsername = (value) =>
   value
@@ -243,7 +244,16 @@ function App() {
   const [appUser, setAppUser] = useState(null);                // canonical /users/{uid} doc
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [checkingProfile, setCheckingProfile] = useState(true);
+  const [notice, setNotice] = useState(null);
+  const noticeTimerRef = useRef(null);
   const profileUnsubRef = useRef(null);
+
+  const notify = (text, type = 'info') => {
+    if (!text) return;
+    setNotice({ text, type });
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 3000);
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -342,6 +352,7 @@ function App() {
     });
 
     return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
       if (profileUnsubRef.current) profileUnsubRef.current();
       unsub();
     };
@@ -351,9 +362,16 @@ function App() {
 
   return (
     <Router>
-      <UserContext.Provider value={appUser}>
-        <AppRoutes user={firebaseUser} />
-      </UserContext.Provider>
+      <NoticeContext.Provider value={{ notify }}>
+        <UserContext.Provider value={appUser}>
+          {notice ? (
+            <div className={`global-notice ${notice.type}`}>
+              <span>{notice.text}</span>
+            </div>
+          ) : null}
+          <AppRoutes user={firebaseUser} />
+        </UserContext.Provider>
+      </NoticeContext.Provider>
     </Router>
   );
 }

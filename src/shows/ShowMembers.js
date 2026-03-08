@@ -5,15 +5,16 @@ import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
-import { UserContext } from '../App';
+import { NoticeContext, UserContext } from '../App';
 import { db, functions } from '../firebase';
-import { buildShowNavItems, buildShowPath, MODULE_KEYS, MODULE_META, normalizeModuleAccess, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, MODULE_KEYS, MODULE_META, normalizeModuleAccess, useShowContext } from '../services/accessPolicy';
 import useShowModules from './useShowModules';
 import './showPages.css';
 
 export default function ShowMembers() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
+  const { notify } = useContext(NoticeContext);
   const ctx = useShowContext({ showId, appUser });
   const modules = useShowModules(showId);
 
@@ -23,8 +24,10 @@ export default function ShowMembers() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showRole, setShowRole] = useState('member');
   const [newAccess, setNewAccess] = useState(normalizeModuleAccess({}));
+  const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [updatingMemberId, setUpdatingMemberId] = useState('');
+  const [removingMemberId, setRemovingMemberId] = useState('');
 
   useEffect(() => {
     if (!showId) return undefined;
@@ -49,15 +52,21 @@ export default function ShowMembers() {
   );
 
   const searchUsers = async () => {
-    const fn = httpsCallable(functions, 'searchUsers');
-    const result = await fn({ query: queryText, limit: 12, showId });
-    setSearchResults(result.data?.users || []);
+    setSearching(true);
+    try {
+      const fn = httpsCallable(functions, 'searchUsers');
+      const result = await fn({ query: queryText, limit: 12, showId });
+      setSearchResults(result.data?.users || []);
+    } catch (err) {
+      notify(err?.message || 'Failed to search users.', 'error');
+    } finally {
+      setSearching(false);
+    }
   };
 
   const assignUser = async () => {
     if (!selectedUser?.uid) return;
     setSaving(true);
-    setMessage('');
     try {
       const fn = httpsCallable(functions, 'assignUserToShow');
       await fn({
@@ -69,62 +78,48 @@ export default function ShowMembers() {
       setSelectedUser(null);
       setQueryText('');
       setSearchResults([]);
-      setMessage('User assigned to show.');
+      notify('User assigned to show.', 'success');
     } catch (err) {
-      setMessage(err?.message || 'Failed to assign user.');
+      notify(err?.message || 'Failed to assign user.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const updateMember = async (member, updates) => {
-    setMessage('');
+    setUpdatingMemberId(member.id);
     try {
       const fn = httpsCallable(functions, 'updateShowMemberAccess');
       await fn({ showId, userId: member.id, ...updates });
-      setMessage('Member access updated.');
+      notify('Member access updated.', 'success');
     } catch (err) {
-      setMessage(err?.message || 'Failed to update member.');
+      notify(err?.message || 'Failed to update member.', 'error');
+    } finally {
+      setUpdatingMemberId('');
     }
   };
 
   const removeMember = async (member) => {
     const confirmed = window.confirm(`Remove ${member.displayName || member.email || member.uid} from this show?`);
     if (!confirmed) return;
-    setMessage('');
+    setRemovingMemberId(member.id);
     try {
       const fn = httpsCallable(functions, 'removeUserFromShow');
       await fn({ showId, userId: member.id });
-      setMessage('Member removed from show.');
+      notify('Member removed from show.', 'success');
     } catch (err) {
-      setMessage(err?.message || 'Failed to remove member.');
+      notify(err?.message || 'Failed to remove member.', 'error');
+    } finally {
+      setRemovingMemberId('');
     }
-  };
-
-  const setAllAccess = (value) => {
-    const next = {};
-    modules.forEach((m) => {
-      next[m.key] = m.enabled ? value : false;
-    });
-    setNewAccess(normalizeModuleAccess(next));
-  };
-
-  const setAllMemberAccess = async (member, value) => {
-    const next = {};
-    modules.forEach((m) => {
-      next[m.key] = m.enabled ? value : false;
-    });
-    await updateMember(member, { moduleAccess: normalizeModuleAccess(next) });
   };
 
   return (
     <ShowRoute permission="manage_members">
       <AppShell
-        title="Access"
-        titlePath={buildShowPath(ctx.show?.name, 'access')}
+        title={ctx.show?.name || 'Show'}
         navItems={navItems}
-        showMenuButton
-        showSettingsButton
+        showBackButton
       >
         <div className="show-page-stack">
           <section className="show-hero-card">
@@ -141,7 +136,9 @@ export default function ShowMembers() {
                 onChange={(e) => setQueryText(e.target.value)}
                 placeholder="Search by name, email, or uid"
               />
-              <button className="show-btn-outline" type="button" onClick={searchUsers}>Search Users</button>
+              <button className="show-btn-outline" type="button" onClick={searchUsers} disabled={searching}>
+                {searching ? 'Searching...' : 'Search Users'}
+              </button>
             </div>
             <div className="members-grid" style={{ marginTop: 10 }}>
               {searchResults.map((u) => (
@@ -164,10 +161,6 @@ export default function ShowMembers() {
                   <option value="member">member</option>
                   <option value="show_admin">show_admin</option>
                 </select>
-                <div className="show-actions">
-                  <button className="show-btn-outline" type="button" onClick={() => setAllAccess(true)}>Enable All Modules</button>
-                  <button className="show-btn-outline" type="button" onClick={() => setAllAccess(false)}>Disable All Modules</button>
-                </div>
                 <div className="show-card" style={{ padding: 12 }}>
                   {MODULE_KEYS.map((key) => {
                     const registryModule = modules.find((mod) => mod.key === key);
@@ -193,7 +186,6 @@ export default function ShowMembers() {
                 </button>
               </div>
             ) : null}
-            {message ? <p className="info-note" style={{ marginTop: 10 }}>{message}</p> : null}
           </section>
 
           <section className="members-grid">
@@ -208,17 +200,20 @@ export default function ShowMembers() {
                   <select
                     value={m.showRole || 'member'}
                     onChange={(e) => updateMember(m, { showRole: e.target.value })}
-                    disabled={ctx.show?.ownerId === m.id}
+                    disabled={ctx.show?.ownerId === m.id || updatingMemberId === m.id || removingMemberId === m.id}
                   >
                     <option value="member">member</option>
                     <option value="show_admin">show_admin</option>
                   </select>
                 </div>
                 <div className="show-actions" style={{ marginTop: 0 }}>
-                  <button className="show-btn-outline" type="button" onClick={() => setAllMemberAccess(m, true)}>Enable All</button>
-                  <button className="show-btn-outline" type="button" onClick={() => setAllMemberAccess(m, false)}>Disable All</button>
-                  <button className="show-btn-danger" type="button" onClick={() => removeMember(m)} disabled={ctx.show?.ownerId === m.id}>
-                    Remove Member
+                  <button
+                    className="show-btn-danger"
+                    type="button"
+                    onClick={() => removeMember(m)}
+                    disabled={ctx.show?.ownerId === m.id || updatingMemberId === m.id || removingMemberId === m.id}
+                  >
+                    {removingMemberId === m.id ? 'Removing...' : 'Remove Member'}
                   </button>
                 </div>
                 <div className="show-card" style={{ padding: 10 }}>
@@ -234,7 +229,7 @@ export default function ShowMembers() {
                       <input
                         type="checkbox"
                         checked={moduleEnabled && Boolean(m?.moduleAccess?.[key])}
-                        disabled={ctx.show?.ownerId === m.id || !moduleEnabled}
+                        disabled={ctx.show?.ownerId === m.id || !moduleEnabled || updatingMemberId === m.id || removingMemberId === m.id}
                         onChange={() =>
                           updateMember(m, {
                             moduleAccess: normalizeModuleAccess({ ...m.moduleAccess, [key]: !m?.moduleAccess?.[key] }),

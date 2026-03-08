@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
-import { buildShowNavItems, buildShowPath, canAccessModule, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessModule, useShowContext } from '../services/accessPolicy';
 import useShowModules from './useShowModules';
 import Ai3DModel from './modules/ai3d/Ai3DModel';
 import './showPages.css';
@@ -22,11 +22,9 @@ export default function ShowAi3DModel() {
     <ShowRoute permission="view_show">
       {!hasAccess ? (
         <AppShell
-          title="AI 3D Model"
-          titlePath={buildShowPath(ctx.show?.name, 'ai-3d-model')}
+          title={ctx.show?.name || 'Show'}
           navItems={navItems}
-          showMenuButton
-          showSettingsButton
+          showBackButton
         >
           <section className="show-hero-card">
             <h3 style={{ marginTop: 0 }}>AI 3D Model module unavailable</h3>

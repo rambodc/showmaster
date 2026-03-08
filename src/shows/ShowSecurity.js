@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
-import { buildShowNavItems, buildShowPath, canAccessModule, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessModule, useShowContext } from '../services/accessPolicy';
 import useShowModules from './useShowModules';
 import './showPages.css';
 
@@ -18,7 +18,7 @@ export default function ShowSecurity() {
 
   return (
     <ShowRoute permission="view_show">
-      <AppShell title="Security" titlePath={buildShowPath(ctx.show?.name, 'security')} navItems={navItems} showMenuButton showSettingsButton>
+      <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showBackButton>
         <section className="show-hero-card">
           <span className="show-chip">Security</span>
           <h2 className="show-title">Security Operations</h2>

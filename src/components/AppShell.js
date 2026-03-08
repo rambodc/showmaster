@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiSettings, FiMenu, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiMenu, FiX } from 'react-icons/fi';
 import './AppShell.css';
 
 const defaultNavItems = [
-  { label: 'Shows', to: '/shows', matches: ['/home', '/shows'] },
+  { label: 'All Shows', to: '/shows', matches: ['/home', '/shows'] },
   { label: 'Settings', to: '/settings', matches: ['/settings', '/more', '/account', '/username'] },
 ];
 
@@ -14,11 +14,11 @@ function isActive(pathname, matches) {
 
 export default function AppShell({
   title = 'Showmaster',
-  titlePath,
   children,
   navItems,
   showMenuButton = true,
-  showSettingsButton = false,
+  showBackButton = false,
+  backTo = '/shows',
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -52,7 +52,14 @@ export default function AppShell({
   return (
     <div className="app-shell">
       <aside className="app-shell-sidebar">
-        <div className="app-shell-brand">{titlePath || title}</div>
+        <div className="app-shell-brand-row">
+          {showBackButton ? (
+            <button type="button" className="app-shell-icon-btn" onClick={() => navigate(backTo)} aria-label="Back to all shows">
+              <FiArrowLeft />
+            </button>
+          ) : null}
+          <div className="app-shell-brand">ShowMaster</div>
+        </div>
         {renderNav()}
       </aside>
 
@@ -71,7 +78,11 @@ export default function AppShell({
       <div className="app-shell-main">
         <header className="app-shell-mobile-topbar">
           <div className="app-shell-mobile-left">
-            {showMenuButton ? (
+            {showBackButton ? (
+              <button type="button" className="app-shell-icon-btn" onClick={() => navigate(backTo)}>
+                <FiArrowLeft />
+              </button>
+            ) : showMenuButton ? (
               <button type="button" className="app-shell-icon-btn" onClick={() => setMobileOpen(true)}>
                 <FiMenu />
               </button>
@@ -79,15 +90,9 @@ export default function AppShell({
               <span style={{ width: 34 }} />
             )}
           </div>
-          <h1>{titlePath || title}</h1>
+          <h1>{title}</h1>
           <div className="app-shell-mobile-right">
-            {showSettingsButton ? (
-              <button type="button" className="app-shell-icon-btn" onClick={() => navigate('/settings')}>
-                <FiSettings />
-              </button>
-            ) : (
-              <span style={{ width: 34 }} />
-            )}
+            <span style={{ width: 34 }} />
           </div>
         </header>
 

@@ -6,19 +6,21 @@ import { httpsCallable } from 'firebase/functions';
 import { FiLock, FiMail, FiLogOut, FiUser, FiHash, FiUserPlus, FiShield, FiLayers } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import { auth, db, functions } from '../firebase';
-import { UserContext } from '../App';
+import { NoticeContext, UserContext } from '../App';
 import { MODULE_KEYS, MODULE_META, normalizeModuleAccess } from '../services/accessPolicy';
 import '../shows/showPages.css';
 
 export default function Settings() {
   const navigate = useNavigate();
   const appUser = useContext(UserContext);
+  const { notify } = useContext(NoticeContext);
   const isSuperAdmin = appUser?.systemRole === 'super_admin';
 
   const [shows, setShows] = useState([]);
   const [creatingUser, setCreatingUser] = useState(false);
+  const [assigningShow, setAssigningShow] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', tempPassword: '' });
-  const [message, setMessage] = useState('');
   const [createdUser, setCreatedUser] = useState(null);
 
   const [showId, setShowId] = useState('');
@@ -38,11 +40,15 @@ export default function Settings() {
   }, [isSuperAdmin]);
 
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
       await signOut(auth);
       navigate('/signin', { replace: true });
     } catch (err) {
       console.error('Logout failed:', err);
+      notify('Logout failed.', 'error');
+    } finally {
+      setLoggingOut(false);
     }
   };
 
@@ -52,16 +58,15 @@ export default function Settings() {
     e.preventDefault();
     if (!isSuperAdmin) return;
     setCreatingUser(true);
-    setMessage('');
     try {
       const fn = httpsCallable(functions, 'createInternalUser');
       const result = await fn(form);
       const data = result.data || {};
       setCreatedUser({ uid: data.uid, email: data.email });
-      setMessage(`User created: ${data.email}`);
+      notify(`User created: ${data.email}`, 'success');
       setForm({ firstName: '', lastName: '', email: '', tempPassword: '' });
     } catch (err) {
-      setMessage(err?.message || 'Failed to create user.');
+      notify(err?.message || 'Failed to create user.', 'error');
     } finally {
       setCreatingUser(false);
     }
@@ -69,12 +74,15 @@ export default function Settings() {
 
   const assignToShow = async () => {
     if (!isSuperAdmin || !createdUser?.uid || !showId) return;
+    setAssigningShow(true);
     try {
       const fn = httpsCallable(functions, 'assignUserToShow');
       await fn({ showId, userId: createdUser.uid, showRole, moduleAccess: normalizeModuleAccess(moduleAccess) });
-      setMessage(`Assigned ${createdUser.email} to show.`);
+      notify(`Assigned ${createdUser.email} to show.`, 'success');
     } catch (err) {
-      setMessage(err?.message || 'Failed to assign user to show.');
+      notify(err?.message || 'Failed to assign user to show.', 'error');
+    } finally {
+      setAssigningShow(false);
     }
   };
 
@@ -82,22 +90,21 @@ export default function Settings() {
     e.preventDefault();
     if (!isSuperAdmin || !showForm.name.trim()) return;
     setCreatingShow(true);
-    setMessage('');
     try {
       const fn = httpsCallable(functions, 'createShow');
       const result = await fn({ name: showForm.name, description: showForm.description });
       const newShowId = result?.data?.showId;
-      setMessage(`Show created${newShowId ? `: ${newShowId}` : ''}`);
+      notify(`Show created${newShowId ? `: ${newShowId}` : ''}`, 'success');
       setShowForm({ name: '', description: '' });
     } catch (err) {
-      setMessage(err?.message || 'Failed to create show.');
+      notify(err?.message || 'Failed to create show.', 'error');
     } finally {
       setCreatingShow(false);
     }
   };
 
   return (
-    <AppShell title="Settings" titlePath="settings" showSettingsButton>
+    <AppShell title="Settings">
       <div className="show-page-stack" style={{ maxWidth: 760, margin: '0 auto' }}>
         <section className="show-hero-card">
           <span className="show-chip">Account Settings</span>
@@ -114,7 +121,9 @@ export default function Settings() {
             <button className="show-btn-outline" type="button" onClick={() => navigate('/account/password')}><FiLock /> Change Password</button>
             <button className="show-btn-outline" type="button" onClick={() => navigate('/account/email')}><FiMail /> Change Email</button>
             <button className="show-btn-outline" type="button" onClick={() => navigate('/username')}><FiUser /> Edit Username</button>
-            <button className="show-btn-danger" type="button" onClick={handleLogout}><FiLogOut /> Logout</button>
+            <button className="show-btn-danger" type="button" onClick={handleLogout} disabled={loggingOut}>
+              <FiLogOut /> {loggingOut ? 'Logging out...' : 'Logout'}
+            </button>
           </div>
         </section>
 
@@ -156,13 +165,14 @@ export default function Settings() {
                         </label>
                       ))}
                     </div>
-                    <button className="show-btn" type="button" onClick={assignToShow}>Assign User to Show</button>
+                    <button className="show-btn" type="button" onClick={assignToShow} disabled={assigningShow}>
+                      {assigningShow ? 'Assigning...' : 'Assign User to Show'}
+                    </button>
                   </div>
                 </div>
               ) : null}
             </>
           )}
-          {message ? <p className="info-note" style={{ marginTop: 10 }}>{message}</p> : null}
         </section>
 
         <section className="show-card" style={{ padding: 16 }}>

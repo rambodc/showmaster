@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
-import { buildShowNavItems, buildShowPath, canAccessModule, MODULE_META, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessModule, MODULE_META, useShowContext } from '../services/accessPolicy';
 import useShowModules, { getModuleRoute } from './useShowModules';
 import './showPages.css';
 
@@ -24,11 +24,9 @@ export default function ShowWorkspace() {
   return (
     <ShowRoute permission="view_show">
       <AppShell
-        title={ctx.show?.name || 'Show Workspace'}
-        titlePath={buildShowPath(ctx.show?.name, 'workspace')}
+        title={ctx.show?.name || 'Show'}
         navItems={navItems}
-        showMenuButton
-        showSettingsButton
+        showBackButton
       >
         <div className="show-page-stack">
           <section className="show-hero-card">
@@ -44,7 +42,6 @@ export default function ShowWorkspace() {
               {(ctx.isSuperAdmin || ctx.isShowAdmin) ? (
                 <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/modules`)}>Configure Modules</button>
               ) : null}
-              <button className="show-btn-outline" type="button" onClick={() => navigate('/shows')}>Back to Shows</button>
             </div>
           </section>
 
