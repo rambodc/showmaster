@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiMenu, FiSettings, FiX } from 'react-icons/fi';
+import { FiGrid, FiMenu, FiSettings, FiX } from 'react-icons/fi';
 import './AppShell.css';
 
 const defaultNavItems = [
@@ -22,6 +22,9 @@ export default function AppShell({
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const showRouteMatch = pathname.match(/^\/shows\/([^/]+)/);
+  const workspacePath = showRouteMatch ? `/shows/${showRouteMatch[1]}/workspace` : '';
+  const showWorkspaceShortcut = Boolean(showBackButton && workspacePath && pathname !== workspacePath);
 
   const items = useMemo(() => navItems || defaultNavItems, [navItems]);
   const brandTitle = showBackButton ? title : 'ShowMaster';
@@ -88,7 +91,18 @@ export default function AppShell({
           </div>
           <h1>{title}</h1>
           <div className="app-shell-mobile-right">
-            <span style={{ width: 34 }} />
+            {showWorkspaceShortcut ? (
+              <button
+                type="button"
+                className="app-shell-icon-btn"
+                aria-label="Go to workspace"
+                onClick={() => navigate(workspacePath)}
+              >
+                <FiGrid />
+              </button>
+            ) : (
+              <span style={{ width: 34 }} />
+            )}
           </div>
         </header>
 

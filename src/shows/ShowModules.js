@@ -1,6 +1,7 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { FiArrowLeft } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { NoticeContext, UserContext } from '../App';
@@ -11,6 +12,8 @@ import './showPages.css';
 
 export default function ShowModules() {
   const { showId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const appUser = useContext(UserContext);
   const { notify } = useContext(NoticeContext);
   const ctx = useShowContext({ showId, appUser });
@@ -37,6 +40,14 @@ export default function ShowModules() {
     }
   };
 
+  const goBack = () => {
+    if (window.history.length > 1 && location.key !== 'default') {
+      navigate(-1);
+      return;
+    }
+    navigate(`/shows/${showId}/workspace`);
+  };
+
   return (
     <ShowRoute permission="manage_modules">
       <AppShell
@@ -45,6 +56,11 @@ export default function ShowModules() {
         showBackButton
       >
         <div className="show-page-stack">
+          <div className="show-page-top-nav">
+            <button className="show-btn-outline" type="button" onClick={goBack}>
+              <FiArrowLeft /> Back
+            </button>
+          </div>
           <section className="show-hero-card">
             <span className="show-chip">Module Registry</span>
             <h2 className="show-title">{ctx.show?.name || 'Show'} Modules</h2>

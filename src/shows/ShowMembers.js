@@ -2,7 +2,8 @@ import React, { useContext, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { FiArrowLeft } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { NoticeContext, UserContext } from '../App';
@@ -13,6 +14,8 @@ import './showPages.css';
 
 export default function ShowMembers() {
   const { showId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const appUser = useContext(UserContext);
   const { notify } = useContext(NoticeContext);
   const ctx = useShowContext({ showId, appUser });
@@ -134,6 +137,14 @@ export default function ShowMembers() {
     }
   };
 
+  const goBack = () => {
+    if (window.history.length > 1 && location.key !== 'default') {
+      navigate(-1);
+      return;
+    }
+    navigate(`/shows/${showId}/workspace`);
+  };
+
   return (
     <ShowRoute permission="manage_members">
       <AppShell
@@ -142,6 +153,11 @@ export default function ShowMembers() {
         showBackButton
       >
         <div className="show-page-stack">
+          <div className="show-page-top-nav">
+            <button className="show-btn-outline" type="button" onClick={goBack}>
+              <FiArrowLeft /> Back
+            </button>
+          </div>
           <section className="show-hero-card">
             <span className="show-chip">Access Control</span>
             <h2 className="show-title">Members and Module Access</h2>

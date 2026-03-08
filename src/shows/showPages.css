@@ -3,6 +3,11 @@
   gap: 14px;
 }
 
+.show-page-top-nav {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .show-hero-card,
 .show-card {
   background: linear-gradient(165deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.95));
