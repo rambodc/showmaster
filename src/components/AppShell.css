@@ -70,6 +70,12 @@
   color: #0369a1;
 }
 
+.app-shell-nav-item-all-shows,
+.app-shell-nav-item-all-shows.active {
+  background: transparent;
+  color: #0284c7;
+}
+
 .app-shell-mobile-topbar {
   display: none;
 }

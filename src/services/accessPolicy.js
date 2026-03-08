@@ -1,6 +1,6 @@
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { FiArchive, FiCpu, FiHardDrive, FiShield, FiUsers } from 'react-icons/fi';
+import { FiArchive, FiArrowLeft, FiCpu, FiGrid, FiHardDrive, FiShield, FiUsers } from 'react-icons/fi';
 import { db } from '../firebase';
 import { MODULE_KEYS, MODULE_META } from './moduleCatalog';
 
@@ -113,8 +113,16 @@ export function buildShowPath(showName, moduleKey) {
 export function buildShowNavItems({ showId, modules, ctx }) {
   const allShows = {
     label: 'All Shows',
+    icon: FiArrowLeft,
+    variant: 'all-shows-back',
     to: '/shows',
     matches: ['/shows', '/home'],
+  };
+  const workspace = {
+    label: 'Workspace',
+    icon: FiGrid,
+    to: `/shows/${showId}/workspace`,
+    matches: [`/shows/${showId}/workspace`],
   };
 
   const moduleItems = (modules || [])
@@ -129,7 +137,7 @@ export function buildShowNavItems({ showId, modules, ctx }) {
       };
     });
 
-  return [allShows, ...moduleItems];
+  return [allShows, workspace, ...moduleItems];
 }
 
 export function hasShowPermission(ctx, permission) {

@@ -46,10 +46,7 @@ function Home() {
   }, [appUser?.id, appUser?.systemRole, memberShowIds, shows]);
 
   return (
-    <AppShell
-      title="All Shows"
-      showMenuButton={false}
-    >
+    <AppShell title="All Shows">
       <div className="shows-layout">
         <section className="shows-list-card">
           <h3 style={{ marginTop: 0 }}>Assigned Shows</h3>

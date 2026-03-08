@@ -28,13 +28,16 @@ export default function AppShell({
 
   const renderNav = () => (
     <nav className="app-shell-nav">
-      {items.map(({ label, to, icon: Icon, matches }) => {
+      {items.map(({ label, to, icon: Icon, matches, variant }) => {
         const active = isActive(pathname, matches || [to]);
+        const className = ['app-shell-nav-item'];
+        if (active) className.push('active');
+        if (variant === 'all-shows-back') className.push('app-shell-nav-item-all-shows');
         return (
           <button
             key={label}
             type="button"
-            className={active ? 'app-shell-nav-item active' : 'app-shell-nav-item'}
+            className={className.join(' ')}
             onClick={() => {
               navigate(to);
               setMobileOpen(false);
