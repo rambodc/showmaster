@@ -37,6 +37,30 @@
   color: #64748b;
 }
 
+.show-ai3d-fullview {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(2px);
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.show-ai3d-fullview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: #f8fafc;
+}
+
+.show-ai3d-fullview-head h3 {
+  margin: 0;
+}
+
 .show-hero-card {
   padding: 18px;
 }

@@ -1,6 +1,6 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FiImage } from 'react-icons/fi';
+import { FiImage, FiX } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
@@ -17,6 +17,7 @@ export default function ShowWorkspace() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
   const navigate = useNavigate();
+  const [fullViewOpen, setFullViewOpen] = useState(false);
   const ctx = useShowContext({ showId, appUser });
   const modules = useShowModules(showId);
 
@@ -26,8 +27,22 @@ export default function ShowWorkspace() {
   );
 
   const visibleModules = modules.filter((m) => canAccessModule({ moduleKey: m.key, moduleEnabled: m.enabled, ctx }));
-  const canViewAi3D = visibleModules.some((m) => m.key === 'ai3d');
+  const ai3dModule = modules.find((m) => m.key === 'ai3d');
+  const canViewAi3D = Boolean(ai3dModule?.enabled) && canAccessModule({
+    moduleKey: 'ai3d',
+    moduleEnabled: ai3dModule?.enabled,
+    ctx,
+  });
   const showIconUrl = getShowIconUrl(ctx.show);
+
+  useEffect(() => {
+    if (!fullViewOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [fullViewOpen]);
 
   return (
     <ShowRoute permission="view_show">
@@ -68,13 +83,25 @@ export default function ShowWorkspace() {
             <section className="show-card show-ai3d-preview">
               <div className="show-ai3d-header">
                 <h3>3D Model Preview</h3>
-                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/ai-3d-model`)}>
-                  Open 3D Editor
+                <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(true)}>
+                  Full View
                 </button>
               </div>
               <p className="show-ai3d-meta">View-only preview. Orbit, pan, and zoom to inspect the scene.</p>
               <Ai3DReadOnlyViewer showId={showId} height="clamp(170px, 28vh, 360px)" />
             </section>
+          ) : null}
+
+          {fullViewOpen && canViewAi3D ? (
+            <div className="show-ai3d-fullview" role="dialog" aria-modal="true">
+              <div className="show-ai3d-fullview-head">
+                <h3>3D Model Full View</h3>
+                <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(false)}>
+                  <FiX /> Close
+                </button>
+              </div>
+              <Ai3DReadOnlyViewer showId={showId} height="calc(100dvh - 96px)" />
+            </div>
           ) : null}
 
           <section className="show-grid">
