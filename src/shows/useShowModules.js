@@ -11,6 +11,18 @@ const defaults = MODULE_CATALOG.map((mod) => ({
   version: 1,
 }));
 
+const parseEnabled = (value, fallback = false) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return fallback;
+    if (['true', '1', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'off', 'disabled'].includes(normalized)) return false;
+  }
+  return fallback;
+};
+
 export function getModuleRoute(showId, moduleKey) {
   const map = {
     security: 'security',
@@ -36,12 +48,12 @@ export default function useShowModules(showId) {
         const data = d.data() || {};
         const key = data.key || d.id;
         next[key] = {
+          ...data,
           key,
           label: data.label || data.name || MODULE_META[key]?.label || key,
           order: Number.isFinite(data.order) ? data.order : 999,
-          enabled: Boolean(data.enabled),
+          enabled: parseEnabled(data.enabled, Boolean(MODULE_META[key]?.defaultEnabled)),
           version: Number.isFinite(data.version) ? data.version : 1,
-          ...data,
         };
       });
       setModulesById(next);
