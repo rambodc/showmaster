@@ -77,33 +77,32 @@ export default function ShowWorkspace() {
             </div>
           </section>
 
-          <section className="show-card show-ai3d-preview">
-            <div className="show-ai3d-header">
-              <h3>3D Model Preview</h3>
-              <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(true)}>
-                <FiMaximize2 /> Full View
-              </button>
-            </div>
-            <p className="show-ai3d-meta">View-only preview. Orbit, pan, and zoom to inspect the scene.</p>
-            <Ai3DReadOnlyViewer showId={showId} height="clamp(170px, 28vh, 360px)" />
-          </section>
+          {Boolean(ctx.show?.display3dInWorkspace) ? (
+            <>
+              <section className="show-card show-ai3d-preview">
+                <div className="show-ai3d-header">
+                  <h3>3D Model Preview</h3>
+                  <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(true)}>
+                    <FiMaximize2 /> Full View
+                  </button>
+                </div>
+                <p className="show-ai3d-meta">View-only preview. Orbit, pan, and zoom to inspect the scene.</p>
+                <Ai3DReadOnlyViewer showId={showId} height="clamp(170px, 28vh, 360px)" />
+              </section>
 
-          {fullViewOpen ? (
-            <div className="show-ai3d-fullview" role="dialog" aria-modal="true">
-              <div className="show-ai3d-fullview-head">
-                <h3>3D Model Full View</h3>
-                <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(false)}>
-                  <FiX /> Close
-                </button>
-              </div>
-              <Ai3DReadOnlyViewer showId={showId} height="calc(100dvh - 96px)" />
-            </div>
+              {fullViewOpen ? (
+                <div className="show-ai3d-fullview" role="dialog" aria-modal="true">
+                  <div className="show-ai3d-fullview-head">
+                    <h3>3D Model Full View</h3>
+                    <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(false)}>
+                      <FiX /> Close
+                    </button>
+                  </div>
+                  <Ai3DReadOnlyViewer showId={showId} height="calc(100dvh - 96px)" />
+                </div>
+              ) : null}
+            </>
           ) : null}
-
-          {/*
-            Workspace viewer is intentionally always visible for all users,
-            independent of module access toggles.
-          */}
 
           <section className="show-grid">
             {visibleModules.length === 0 ? (

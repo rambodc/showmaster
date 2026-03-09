@@ -1,22 +1,23 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import '../auth/Auth.css'; // Reuse your clean styles
+import './LandingPage.css';
 
 function LandingPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="auth-container">
-      <div className="auth-box">
-        <h1>Welcome to Showmaster</h1>
-        <h2>Music. Culture. Identity.</h2>
-
-        <p style={{ textAlign: 'center', fontWeight: 300 }}>
-          Internal show operations platform.
-        </p>
-
-        <button onClick={() => navigate('/signin')}>Sign In</button>
-      </div>
+    <div className="landing-root">
+      <div className="landing-overlay" />
+      <main className="landing-card">
+        <span className="landing-chip">SHOWMASTER</span>
+        <h1>Run Live Shows with Precision</h1>
+        <p>Operations workspace for teams, access, inventory, artists, and 3D planning.</p>
+        <div className="landing-actions">
+          <button className="landing-btn-primary" type="button" onClick={() => navigate('/signin')}>Sign In</button>
+        </div>
+      </main>
+      <div className="landing-glow landing-glow-left" />
+      <div className="landing-glow landing-glow-right" />
     </div>
   );
 }

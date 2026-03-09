@@ -134,7 +134,7 @@ export default function ShowModules() {
               </select>
 
               <label className="switch-row" htmlFor="show-display-3d">
-                <span>Display 3D Model in Workspace</span>
+                <span>Display 3D Model Viewer in Workspace</span>
                 <input
                   id="show-display-3d"
                   type="checkbox"

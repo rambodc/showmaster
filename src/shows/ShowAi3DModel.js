@@ -27,8 +27,8 @@ export default function ShowAi3DModel() {
           showBackButton
         >
           <section className="show-hero-card">
-            <h3 style={{ marginTop: 0 }}>3D Model module unavailable</h3>
-            <p className="info-note">Ask a show admin to enable 3D Model access for your account.</p>
+            <h3 style={{ marginTop: 0 }}>3D Model Editor unavailable</h3>
+            <p className="info-note">Ask a show admin to enable 3D Model Editor access for your account.</p>
           </section>
         </AppShell>
       ) : (
