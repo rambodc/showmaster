@@ -27,8 +27,7 @@ import ShowWorkspace from './shows/ShowWorkspace';
 import ShowMembers from './shows/ShowMembers';
 import ShowModules from './shows/ShowModules';
 import ShowInventory from './shows/ShowInventory';
-import ShowSecurity from './shows/ShowSecurity';
-import ShowCarps from './shows/ShowCarps';
+import ShowScheduling from './shows/ShowScheduling';
 import ShowArtists from './shows/ShowArtists';
 import ShowAi3DModel from './shows/ShowAi3DModel';
 
@@ -100,18 +99,10 @@ function AppRoutes({ user }) {
           }
         />
         <Route
-          path="/shows/:showId/security"
+          path="/shows/:showId/scheduling"
           element={
             <ProtectedRoute>
-              <ShowSecurity />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/shows/:showId/carps"
-          element={
-            <ProtectedRoute>
-              <ShowCarps />
+              <ShowScheduling />
             </ProtectedRoute>
           }
         />

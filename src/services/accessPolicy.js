@@ -1,21 +1,20 @@
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { FiArchive, FiArrowLeft, FiCpu, FiGrid, FiHardDrive, FiShield, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiCalendar, FiCpu, FiGrid, FiHardDrive, FiUsers } from 'react-icons/fi';
 import { db } from '../firebase';
 import { MODULE_KEYS, MODULE_META } from './moduleCatalog';
 
 export { MODULE_KEYS, MODULE_META };
 
 const MODULE_ICON_MAP = {
-  security: FiShield,
-  carps: FiArchive,
+  scheduling: FiCalendar,
   inventory: FiHardDrive,
   artists: FiUsers,
   ai3d: FiCpu,
 };
 
 export function getModuleIcon(moduleKey) {
-  return MODULE_ICON_MAP[moduleKey] || FiArchive;
+  return MODULE_ICON_MAP[moduleKey] || FiGrid;
 }
 
 export function getModuleDescription(moduleKey) {

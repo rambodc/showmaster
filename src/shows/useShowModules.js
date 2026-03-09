@@ -25,8 +25,7 @@ const parseEnabled = (value, fallback = false) => {
 
 export function getModuleRoute(showId, moduleKey) {
   const map = {
-    security: 'security',
-    carps: 'carps',
+    scheduling: 'scheduling',
     inventory: 'inventory',
     artists: 'artists',
     ai3d: 'ai-3d-model',
