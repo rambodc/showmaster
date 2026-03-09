@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FiImage, FiX } from 'react-icons/fi';
+import { FiImage, FiMaximize2, FiSettings, FiUsers, FiX } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
@@ -27,12 +27,6 @@ export default function ShowWorkspace() {
   );
 
   const visibleModules = modules.filter((m) => canAccessModule({ moduleKey: m.key, moduleEnabled: m.enabled, ctx }));
-  const ai3dModule = modules.find((m) => m.key === 'ai3d');
-  const canViewAi3D = Boolean(ai3dModule?.enabled) && canAccessModule({
-    moduleKey: 'ai3d',
-    moduleEnabled: ai3dModule?.enabled,
-    ctx,
-  });
   const showIconUrl = getShowIconUrl(ctx.show);
 
   useEffect(() => {
@@ -71,28 +65,30 @@ export default function ShowWorkspace() {
             </div>
             <div className="show-actions">
               {(ctx.isSuperAdmin || ctx.isShowAdmin) ? (
-                <button className="show-btn" type="button" onClick={() => navigate(`/shows/${showId}/members`)}>Manage Access</button>
+                <button className="show-btn" type="button" onClick={() => navigate(`/shows/${showId}/members`)}>
+                  <FiUsers /> Manage Access
+                </button>
               ) : null}
               {(ctx.isSuperAdmin || ctx.isShowAdmin) ? (
-                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/modules`)}>Configure Modules</button>
+                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/modules`)}>
+                  <FiSettings /> Show Settings
+                </button>
               ) : null}
             </div>
           </section>
 
-          {canViewAi3D ? (
-            <section className="show-card show-ai3d-preview">
-              <div className="show-ai3d-header">
-                <h3>3D Model Preview</h3>
-                <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(true)}>
-                  Full View
-                </button>
-              </div>
-              <p className="show-ai3d-meta">View-only preview. Orbit, pan, and zoom to inspect the scene.</p>
-              <Ai3DReadOnlyViewer showId={showId} height="clamp(170px, 28vh, 360px)" />
-            </section>
-          ) : null}
+          <section className="show-card show-ai3d-preview">
+            <div className="show-ai3d-header">
+              <h3>3D Model Preview</h3>
+              <button className="show-btn-outline" type="button" onClick={() => setFullViewOpen(true)}>
+                <FiMaximize2 /> Full View
+              </button>
+            </div>
+            <p className="show-ai3d-meta">View-only preview. Orbit, pan, and zoom to inspect the scene.</p>
+            <Ai3DReadOnlyViewer showId={showId} height="clamp(170px, 28vh, 360px)" />
+          </section>
 
-          {fullViewOpen && canViewAi3D ? (
+          {fullViewOpen ? (
             <div className="show-ai3d-fullview" role="dialog" aria-modal="true">
               <div className="show-ai3d-fullview-head">
                 <h3>3D Model Full View</h3>
@@ -103,6 +99,11 @@ export default function ShowWorkspace() {
               <Ai3DReadOnlyViewer showId={showId} height="calc(100dvh - 96px)" />
             </div>
           ) : null}
+
+          {/*
+            Workspace viewer is intentionally always visible for all users,
+            independent of module access toggles.
+          */}
 
           <section className="show-grid">
             {visibleModules.length === 0 ? (
