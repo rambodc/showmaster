@@ -6,7 +6,7 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { addDoc, collection, deleteDoc, deleteField, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { getDownloadURL, getMetadata, list, ref as storageRef, uploadBytesResumable } from 'firebase/storage';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { FiArrowUp, FiArrowRight, FiArrowDown, FiArrowLeft, FiMaximize2, FiMousePointer, FiMap, FiNavigation, FiMove, FiRotateCw, FiMoreHorizontal, FiCornerUpLeft, FiCornerUpRight } from 'react-icons/fi';
 import styles from './Ai3DModel.module.css';
 import { db, storage } from '../../../firebase';
@@ -73,6 +73,7 @@ const buildSummary = (obj) => ({
 
 export default function Ai3DModel() {
   const { showId } = useParams();
+  const navigate = useNavigate();
   const appUser = useContext(UserContext);
   const canvasRef = useRef(null);
   const lastSizeRef = useRef({ width: 0, height: 0 });
@@ -1629,6 +1630,16 @@ export default function Ai3DModel() {
   return (
     <div className={styles.scenePage}>
       <div className={styles.sceneShell}>
+        <div className={styles.sceneBackBar}>
+          <button
+            type="button"
+            className={styles.sceneBackButton}
+            onClick={() => navigate(`/shows/${showId}/workspace`)}
+          >
+            <FiArrowLeft />
+            Back
+          </button>
+        </div>
         <div className={styles.viewerStage} ref={canvasRef} />
 
         <div className={styles.navControls}>

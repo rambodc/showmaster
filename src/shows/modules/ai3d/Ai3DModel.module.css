@@ -51,6 +51,26 @@
   -webkit-touch-callout: none;
 }
 
+.sceneBackBar {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 9;
+}
+
+.sceneBackButton {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  font-weight: 700;
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
 .viewerStage {
   position: absolute;
   inset: 0;
