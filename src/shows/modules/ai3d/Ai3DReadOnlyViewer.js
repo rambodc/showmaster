@@ -21,6 +21,10 @@ const buildAssetLoadError = (err) => {
 
 export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
   const canvasRef = useRef(null);
+  const initialViewRef = useRef({
+    position: new THREE.Vector3(6, 5, 9),
+    target: new THREE.Vector3(0, 0.5, 0),
+  });
   const sceneRef = useRef(null);
   const groupRef = useRef(null);
   const groundRef = useRef(null);
@@ -148,6 +152,8 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
     controls.minPolarAngle = 0.02;
     controls.target.set(0, 0.5, 0);
     controls.update();
+    initialViewRef.current.position.copy(camera.position);
+    initialViewRef.current.target.copy(controls.target);
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
@@ -226,9 +232,27 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
     };
   }, [showId]);
 
+  const resetView = () => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    camera.position.copy(initialViewRef.current.position);
+    controls.target.copy(initialViewRef.current.target);
+    controls.update();
+  };
+
   useEffect(() => {
     const group = groupRef.current;
     if (!group) return;
+
+    const setProxyVisibility = (mesh, visible) => {
+      if (!mesh?.material) return;
+      mesh.visible = true;
+      mesh.material.transparent = true;
+      mesh.material.depthWrite = visible;
+      mesh.material.opacity = visible ? 1 : 0;
+      mesh.material.needsUpdate = true;
+    };
 
     const applyDetailTransform = (detailGroup, mesh) => {
       if (!detailGroup || !mesh?.geometry) return;
@@ -353,13 +377,13 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
           });
           detailCacheRef.current.delete(obj.id);
         }
-        mesh.visible = true;
+        setProxyVisibility(mesh, true);
         return;
       }
 
       if (cached) {
         applyDetailTransform(cached.group, mesh);
-        mesh.visible = false;
+        setProxyVisibility(mesh, false);
         return;
       }
       if (detailLoadingRef.current.has(obj.id)) return;
@@ -381,10 +405,10 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
           mesh.add(detailGroup);
           applyDetailTransform(detailGroup, mesh);
           detailCacheRef.current.set(obj.id, { group: detailGroup });
-          mesh.visible = false;
+          setProxyVisibility(mesh, false);
         })
         .catch((err) => {
-          mesh.visible = true;
+          setProxyVisibility(mesh, true);
           setError(buildAssetLoadError(err));
         })
         .finally(() => {
@@ -451,7 +475,29 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
 
   return (
     <div>
-      <div ref={canvasRef} style={{ width: '100%', height, borderRadius: 14, overflow: 'hidden' }} />
+      <div style={{ position: 'relative' }}>
+        <button
+          type="button"
+          onClick={resetView}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            zIndex: 2,
+            borderRadius: 8,
+            border: '1px solid #bae6fd',
+            background: 'rgba(240, 249, 255, 0.92)',
+            color: '#075985',
+            fontWeight: 700,
+            fontSize: 12,
+            padding: '4px 9px',
+            cursor: 'pointer',
+          }}
+        >
+          Reset
+        </button>
+        <div ref={canvasRef} style={{ width: '100%', height, borderRadius: 14, overflow: 'hidden' }} />
+      </div>
       {error ? <p className="info-note" style={{ marginTop: 8 }}>{error}</p> : null}
     </div>
   );
