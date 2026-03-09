@@ -73,7 +73,7 @@ export default function ShowWorkspace() {
                 </button>
               </div>
               <p className="show-ai3d-meta">View-only preview. Orbit, pan, and zoom to inspect the scene.</p>
-              <Ai3DReadOnlyViewer showId={showId} height={360} />
+              <Ai3DReadOnlyViewer showId={showId} height="clamp(170px, 28vh, 360px)" />
             </section>
           ) : null}
 
