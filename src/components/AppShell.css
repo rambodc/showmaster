@@ -25,6 +25,16 @@
   gap: 10px;
 }
 
+.app-shell-account-email {
+  font-size: 0.72rem;
+  color: #64748b;
+  max-width: 210px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
 .app-shell-brand {
   font-size: 1.28rem;
   font-weight: 800;
@@ -123,9 +133,27 @@
     backdrop-filter: blur(8px);
   }
 
+  .app-shell-mobile-title-block {
+    display: grid;
+    justify-items: center;
+    min-width: 0;
+  }
+
+  .app-shell-mobile-email {
+    font-size: 0.66rem;
+    color: #64748b;
+    line-height: 1;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+
   .app-shell-mobile-topbar h1 {
     font-size: 0.86rem;
     margin: 0;
+    font-weight: 800;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
@@ -179,8 +207,7 @@
   }
 
   .app-shell-drawer-title-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: grid;
+    gap: 2px;
   }
 }

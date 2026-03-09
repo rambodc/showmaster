@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiGrid, FiMenu, FiSettings, FiX } from 'react-icons/fi';
+import { UserContext } from '../App';
 import './AppShell.css';
 
 const defaultNavItems = [
@@ -19,6 +20,7 @@ export default function AppShell({
   showMenuButton = true,
   showBackButton = false,
 }) {
+  const appUser = useContext(UserContext);
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -28,6 +30,9 @@ export default function AppShell({
 
   const items = useMemo(() => navItems || defaultNavItems, [navItems]);
   const brandTitle = showBackButton ? title : 'ShowMaster';
+  const email = String(appUser?.email || '').trim();
+  const truncate = (value, max = 34) => (value.length > max ? `${value.slice(0, max - 1)}…` : value);
+  const emailLabel = email ? truncate(email, 34) : 'No email';
 
   const renderNav = () => (
     <nav className="app-shell-nav">
@@ -59,7 +64,10 @@ export default function AppShell({
     <div className="app-shell">
       <aside className="app-shell-sidebar">
         <div className="app-shell-brand-row">
-          <div className="app-shell-brand">{brandTitle}</div>
+          <div>
+            <div className="app-shell-account-email" title={email || undefined}>{emailLabel}</div>
+            <div className="app-shell-brand">{brandTitle}</div>
+          </div>
         </div>
         {renderNav()}
       </aside>
@@ -69,6 +77,7 @@ export default function AppShell({
       <aside className={mobileOpen ? 'app-shell-drawer open' : 'app-shell-drawer'}>
         <div className="app-shell-drawer-top">
           <div className="app-shell-drawer-title-row">
+            <div className="app-shell-account-email" title={email || undefined}>{emailLabel}</div>
             <strong>{title}</strong>
           </div>
           <button type="button" className="app-shell-icon-btn" onClick={() => setMobileOpen(false)}>
@@ -89,7 +98,10 @@ export default function AppShell({
               <span style={{ width: 34 }} />
             )}
           </div>
-          <h1>{title}</h1>
+          <div className="app-shell-mobile-title-block">
+            <div className="app-shell-mobile-email" title={email || undefined}>{emailLabel}</div>
+            <h1>{title}</h1>
+          </div>
           <div className="app-shell-mobile-right">
             {showWorkspaceShortcut ? (
               <button

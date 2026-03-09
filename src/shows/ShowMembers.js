@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useMemo, useState } from 'react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -39,11 +39,22 @@ export default function ShowMembers() {
     });
     return normalizeModuleAccess(defaultAccess);
   }, [modules]);
+  const membersSorted = useMemo(() => {
+    const toSortKey = (member) => {
+      const base = member.displayName || member.email || member.uid || member.id || '';
+      return String(base).trim().toLowerCase();
+    };
+    return [...members].sort((a, b) => {
+      const aKey = toSortKey(a);
+      const bKey = toSortKey(b);
+      if (aKey === bKey) return String(a.id || '').localeCompare(String(b.id || ''));
+      return aKey.localeCompare(bKey);
+    });
+  }, [members]);
 
   useEffect(() => {
     if (!showId) return undefined;
-    const q = query(collection(db, 'shows', showId, 'members'), orderBy('updatedAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(collection(db, 'shows', showId, 'members'), (snap) => {
       setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => unsub();
@@ -274,7 +285,7 @@ export default function ShowMembers() {
           </section>
 
           <section className="members-grid">
-            {members.map((m) => (
+            {membersSorted.map((m) => (
               <article className="member-card" key={m.id}>
                 <div>
                   <strong>{m.displayName || m.email || m.uid || m.id}</strong>
