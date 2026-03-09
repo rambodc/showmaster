@@ -16,6 +16,27 @@
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
 }
 
+.show-card {
+  padding: 16px;
+}
+
+.show-ai3d-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.show-ai3d-header h3 {
+  margin: 0;
+}
+
+.show-ai3d-meta {
+  margin: 0 0 12px;
+  color: #64748b;
+}
+
 .show-hero-card {
   padding: 18px;
 }

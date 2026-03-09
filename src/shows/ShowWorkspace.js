@@ -6,6 +6,7 @@ import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
 import { buildShowNavItems, canAccessModule, getModuleDescription, getModuleIcon, MODULE_META, useShowContext } from '../services/accessPolicy';
 import useShowModules, { getModuleRoute } from './useShowModules';
+import Ai3DReadOnlyViewer from './modules/ai3d/Ai3DReadOnlyViewer';
 import './showPages.css';
 
 function getShowIconUrl(show) {
@@ -25,6 +26,7 @@ export default function ShowWorkspace() {
   );
 
   const visibleModules = modules.filter((m) => canAccessModule({ moduleKey: m.key, moduleEnabled: m.enabled, ctx }));
+  const canViewAi3D = visibleModules.some((m) => m.key === 'ai3d');
   const showIconUrl = getShowIconUrl(ctx.show);
 
   return (
@@ -61,6 +63,19 @@ export default function ShowWorkspace() {
               ) : null}
             </div>
           </section>
+
+          {canViewAi3D ? (
+            <section className="show-card show-ai3d-preview">
+              <div className="show-ai3d-header">
+                <h3>3D Model Preview</h3>
+                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/ai-3d-model`)}>
+                  Open 3D Editor
+                </button>
+              </div>
+              <p className="show-ai3d-meta">View-only preview. Orbit, pan, and zoom to inspect the scene.</p>
+              <Ai3DReadOnlyViewer showId={showId} height={360} />
+            </section>
+          ) : null}
 
           <section className="show-grid">
             {visibleModules.length === 0 ? (

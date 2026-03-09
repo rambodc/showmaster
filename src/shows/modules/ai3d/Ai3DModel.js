@@ -52,6 +52,14 @@ const formatNumber = (value) => {
   return Number(value).toFixed(2);
 };
 
+const buildAssetLoadErrorMessage = (error, assetRef = 'asset') => {
+  const raw = String(error?.message || error || '').toLowerCase();
+  if (raw.includes('cors') || raw.includes('access-control-allow-origin')) {
+    return `Unable to load ${assetRef}. Storage CORS is blocking this domain.`;
+  }
+  return `Unable to load ${assetRef}.`;
+};
+
 const buildSummary = (obj) => ({
   id: obj.id,
   label: obj.label || '',
@@ -251,6 +259,12 @@ export default function Ai3DModel() {
   useEffect(() => {
     unitLabelRef.current = unitLabel;
   }, [unitLabel]);
+
+  useEffect(() => {
+    if (typeof gltfLoaderRef.current.setCrossOrigin === 'function') {
+      gltfLoaderRef.current.setCrossOrigin('anonymous');
+    }
+  }, []);
 
   useEffect(() => {
     if (panelOpen || assetPanelOpen) {
@@ -760,7 +774,8 @@ export default function Ai3DModel() {
             if (previous) previous.dispose();
           },
           undefined,
-          () => {
+          (err) => {
+            setError(buildAssetLoadErrorMessage(err, 'texture asset'));
             if (mesh.userData.textureUrl === textureUrl) {
               mesh.material.map = null;
               mesh.material.needsUpdate = true;
@@ -908,7 +923,9 @@ export default function Ai3DModel() {
             showProxy(evictId, true);
           }
         })
-        .catch(() => {})
+        .catch((err) => {
+          setError(buildAssetLoadErrorMessage(err, '3D model asset'));
+        })
         .finally(() => {
           detailLoadingRef.current.delete(obj.id);
         });
@@ -1023,7 +1040,8 @@ export default function Ai3DModel() {
           ground.material.needsUpdate = true;
         },
         undefined,
-        () => {
+        (err) => {
+          setError(buildAssetLoadErrorMessage(err, 'floor texture'));
           ground.material.map = null;
           ground.material.needsUpdate = true;
         }
@@ -1149,7 +1167,7 @@ export default function Ai3DModel() {
           const displayName = meta.customMetadata?.displayName || itemRef.name;
           const metaKind = meta.customMetadata?.kind || '';
           const extension = itemRef.name.split('.').pop()?.toLowerCase() || '';
-          const inferredKind = metaKind || (extension === 'glb' ? 'model' : 'texture');
+          const inferredKind = metaKind || (extension === 'glb' || extension === 'gltf' ? 'model' : 'texture');
           return {
             path: itemRef.fullPath,
             name: itemRef.name,
@@ -1241,6 +1259,9 @@ export default function Ai3DModel() {
         }
       }
     } else {
+      if (!selectedId || panelMode !== 'edit') {
+        setError('Model selected for form. Save the object to see it in scene.');
+      }
       if (selectedObject) {
         const before = { ...selectedObject };
         const after = { ...selectedObject, detailModelPath: asset.path };
