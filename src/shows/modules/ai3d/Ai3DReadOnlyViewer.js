@@ -254,19 +254,28 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
       mesh.material.needsUpdate = true;
     };
 
-    const applyDetailTransform = (detailGroup, mesh) => {
-      if (!detailGroup || !mesh?.geometry) return;
-      const detailBox = new THREE.Box3().setFromObject(detailGroup);
-      const detailSize = detailBox.getSize(new THREE.Vector3());
-      const detailCenter = detailBox.getCenter(new THREE.Vector3());
-      const base = mesh.userData.baseDimensions || { x: 1, y: 1, z: 1 };
+    const applyDetailTransform = (entry, mesh) => {
+      if (!entry?.group || !mesh?.geometry) return;
+      if (!mesh.geometry.boundingBox) {
+        mesh.geometry.computeBoundingBox();
+      }
+      const proxyBox = mesh.geometry.boundingBox.clone();
+      const proxySize = proxyBox.getSize(new THREE.Vector3()).multiply(mesh.scale);
+      const proxyCenterLocal = proxyBox.getCenter(new THREE.Vector3());
+      const detailSize = entry.originalSize.clone();
+      const detailCenter = entry.originalCenter.clone();
       const safe = (value) => (Number.isFinite(value) && value > 0.001 ? value : 0.001);
-      const sx = base.x / safe(detailSize.x);
-      const sy = base.y / safe(detailSize.y);
-      const sz = base.z / safe(detailSize.z);
-      detailGroup.scale.set(sx, sy, sz);
-      detailGroup.position.set(-detailCenter.x * sx, -detailCenter.y * sy, -detailCenter.z * sz);
-      detailGroup.rotation.set(0, 0, 0);
+      detailSize.set(safe(detailSize.x), safe(detailSize.y), safe(detailSize.z));
+      const sx = proxySize.x / detailSize.x;
+      const sy = proxySize.y / detailSize.y;
+      const sz = proxySize.z / detailSize.z;
+      entry.group.scale.set(sx, sy, sz);
+      entry.group.position.set(
+        proxyCenterLocal.x - detailCenter.x * sx,
+        proxyCenterLocal.y - detailCenter.y * sy,
+        proxyCenterLocal.z - detailCenter.z * sz
+      );
+      entry.group.rotation.set(0, 0, 0);
     };
 
     const meshMap = meshMapRef.current;
@@ -382,7 +391,7 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
       }
 
       if (cached) {
-        applyDetailTransform(cached.group, mesh);
+        applyDetailTransform(cached, mesh);
         setProxyVisibility(mesh, false);
         return;
       }
@@ -396,15 +405,24 @@ export default function Ai3DReadOnlyViewer({ showId, height = 360 }) {
         .then((gltf) => {
           const detailGroup = gltf.scene || gltf.scenes?.[0];
           if (!detailGroup) return;
+          detailGroup.updateWorldMatrix(true, true);
           detailGroup.traverse((child) => {
             if (child.isMesh) {
               child.castShadow = true;
               child.receiveShadow = true;
             }
           });
+          const detailBox = new THREE.Box3().setFromObject(detailGroup);
+          const detailSize = detailBox.getSize(new THREE.Vector3());
+          const detailCenter = detailBox.getCenter(new THREE.Vector3());
           mesh.add(detailGroup);
-          applyDetailTransform(detailGroup, mesh);
-          detailCacheRef.current.set(obj.id, { group: detailGroup });
+          const entry = {
+            group: detailGroup,
+            originalSize: detailSize,
+            originalCenter: detailCenter,
+          };
+          applyDetailTransform(entry, mesh);
+          detailCacheRef.current.set(obj.id, entry);
           setProxyVisibility(mesh, false);
         })
         .catch((err) => {
