@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  FiAlertCircle,
   FiArrowLeft,
   FiCalendar,
   FiChevronLeft,
@@ -21,12 +20,8 @@ import useShowModules from './useShowModules';
 import useShowSchedule from './useShowSchedule';
 import {
   formatDateLabel,
-  formatDateTimeLocalInput,
   formatLongDate,
   formatTimeLabel,
-  fromDateTimeLocalInput,
-  getConflictsForItem,
-  getDayWarnings,
   getStatusMeta,
   toDate,
   validateScheduleItem,
@@ -48,6 +43,39 @@ const COLOR_OPTIONS = [
   { value: 'mint', label: 'Mint' },
   { value: 'violet', label: 'Violet' },
 ];
+
+const TIMEZONE_OPTIONS = [
+  { value: 'UTC', label: 'UTC (UTC+00:00)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time - Los Angeles (UTC-08:00 / UTC-07:00)' },
+  { value: 'America/Denver', label: 'Mountain Time - Denver (UTC-07:00 / UTC-06:00)' },
+  { value: 'America/Edmonton', label: 'Mountain Time - Edmonton (UTC-07:00 / UTC-06:00)' },
+  { value: 'America/Chicago', label: 'Central Time - Chicago (UTC-06:00 / UTC-05:00)' },
+  { value: 'America/New_York', label: 'Eastern Time - New York (UTC-05:00 / UTC-04:00)' },
+  { value: 'America/Toronto', label: 'Eastern Time - Toronto (UTC-05:00 / UTC-04:00)' },
+  { value: 'America/Phoenix', label: 'Arizona - Phoenix (UTC-07:00)' },
+  { value: 'America/Anchorage', label: 'Alaska - Anchorage (UTC-09:00 / UTC-08:00)' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii - Honolulu (UTC-10:00)' },
+  { value: 'Europe/London', label: 'London (UTC+00:00 / UTC+01:00)' },
+  { value: 'Europe/Paris', label: 'Paris (UTC+01:00 / UTC+02:00)' },
+  { value: 'Europe/Berlin', label: 'Berlin (UTC+01:00 / UTC+02:00)' },
+  { value: 'Asia/Dubai', label: 'Dubai (UTC+04:00)' },
+  { value: 'Asia/Kolkata', label: 'India - Kolkata (UTC+05:30)' },
+  { value: 'Asia/Bangkok', label: 'Bangkok (UTC+07:00)' },
+  { value: 'Asia/Singapore', label: 'Singapore (UTC+08:00)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (UTC+09:00)' },
+  { value: 'Australia/Sydney', label: 'Sydney (UTC+10:00 / UTC+11:00)' },
+  { value: 'Pacific/Auckland', label: 'Auckland (UTC+12:00 / UTC+13:00)' },
+];
+
+function getTimezoneOptions(selectedTimezone) {
+  if (!selectedTimezone || TIMEZONE_OPTIONS.some((option) => option.value === selectedTimezone)) {
+    return TIMEZONE_OPTIONS;
+  }
+  return [
+    { value: selectedTimezone, label: `${selectedTimezone} (saved)` },
+    ...TIMEZONE_OPTIONS,
+  ];
+}
 
 function buildMetaForm(meta) {
   return {
@@ -87,8 +115,8 @@ function buildDefaultItemForm(day, meta) {
     status: 'scheduled',
     visibility: 'internal',
     colorToken: 'sky',
-    startAt: formatDateTimeLocalInput(start),
-    endAt: formatDateTimeLocalInput(end),
+    startTime: `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`,
+    endTime: `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`,
   };
 }
 
@@ -104,12 +132,21 @@ function buildItemForm(item) {
     status: item?.status || 'scheduled',
     visibility: item?.visibility || 'internal',
     colorToken: item?.colorToken || 'sky',
-    startAt: formatDateTimeLocalInput(item?.startAt),
-    endAt: formatDateTimeLocalInput(item?.endAt),
+    startTime: `${String(toDate(item?.startAt)?.getHours?.() ?? 0).padStart(2, '0')}:${String(toDate(item?.startAt)?.getMinutes?.() ?? 0).padStart(2, '0')}`,
+    endTime: `${String(toDate(item?.endAt)?.getHours?.() ?? 0).padStart(2, '0')}:${String(toDate(item?.endAt)?.getMinutes?.() ?? 0).padStart(2, '0')}`,
   };
 }
 
-function parseItemPayload(form) {
+function combineDayAndTime(day, timeValue) {
+  const baseDate = new Date(day?.date || Date.now());
+  const [hour = '0', minute = '0'] = String(timeValue || '').split(':');
+  const combined = new Date(baseDate);
+  combined.setHours(Number(hour) || 0, Number(minute) || 0, 0, 0);
+  return combined.toISOString();
+}
+
+function parseItemPayload(form, days) {
+  const targetDay = days.find((day) => day.id === form.dayId) || days[0] || null;
   return {
     dayId: form.dayId,
     title: form.title,
@@ -121,8 +158,8 @@ function parseItemPayload(form) {
     status: form.status,
     visibility: form.visibility,
     colorToken: form.colorToken,
-    startAt: fromDateTimeLocalInput(form.startAt),
-    endAt: fromDateTimeLocalInput(form.endAt),
+    startAt: combineDayAndTime(targetDay, form.startTime),
+    endAt: combineDayAndTime(targetDay, form.endTime),
   };
 }
 
@@ -138,10 +175,9 @@ function sortItems(items) {
   return [...items].sort((a, b) => toDate(a.startAt) - toDate(b.startAt));
 }
 
-function OverviewScreen({ showId, meta, days, itemsByDay, selectedDay, getConflicts, canEdit }) {
+function OverviewScreen({ showId, meta, days, itemsByDay, selectedDay, canEdit }) {
   const navigate = useNavigate();
   const totalItems = days.reduce((sum, day) => sum + (itemsByDay.get(day.id) || []).length, 0);
-  const totalWarnings = days.reduce((sum, day) => sum + getDayWarnings(day, itemsByDay.get(day.id) || [], meta).length + getConflicts(day.id).length, 0);
 
   return (
     <div className="sched3-stack">
@@ -182,7 +218,7 @@ function OverviewScreen({ showId, meta, days, itemsByDay, selectedDay, getConfli
           <article className="sched3-summary-card">
             <span>Total load</span>
             <strong>{totalItems} items</strong>
-            <p>{totalWarnings} warning markers across the schedule.</p>
+            <p>All scheduled items across the festival.</p>
           </article>
         </div>
       </section>
@@ -197,8 +233,6 @@ function OverviewScreen({ showId, meta, days, itemsByDay, selectedDay, getConfli
         <div className="sched3-day-list">
           {days.map((day, index) => {
             const dayItems = itemsByDay.get(day.id) || [];
-            const warnings = getDayWarnings(day, dayItems, meta);
-            const conflicts = getConflicts(day.id);
             return (
               <article key={day.id} className="sched3-day-card">
                 <div className="sched3-day-card-head">
@@ -213,7 +247,7 @@ function OverviewScreen({ showId, meta, days, itemsByDay, selectedDay, getConfli
                 </div>
                 <div className="sched3-day-card-meta">
                   <span><FiCalendar size={14} /> {dayItems.length} items</span>
-                  <span><FiAlertCircle size={14} /> {warnings.length + conflicts.length} alerts</span>
+                  <span><FiClock size={14} /> {meta.defaultDayStartTime} - {meta.defaultDayEndTime}</span>
                 </div>
                 <p className="sched3-day-card-summary">{day.summary || 'No summary yet.'}</p>
               </article>
@@ -227,6 +261,7 @@ function OverviewScreen({ showId, meta, days, itemsByDay, selectedDay, getConfli
 
 function SetupScreen({ showId, metaForm, setMetaForm, saving, onSave }) {
   const navigate = useNavigate();
+  const timezoneOptions = useMemo(() => getTimezoneOptions(metaForm.timezone), [metaForm.timezone]);
   return (
     <div className="sched3-stack sched3-detail-layout">
       <section className="show-card sched3-card">
@@ -254,7 +289,11 @@ function SetupScreen({ showId, metaForm, setMetaForm, saving, onSave }) {
           </label>
           <label>
             Timezone
-            <input value={metaForm.timezone} onChange={(event) => setMetaForm((prev) => ({ ...prev, timezone: event.target.value }))} />
+            <select value={metaForm.timezone} onChange={(event) => setMetaForm((prev) => ({ ...prev, timezone: event.target.value }))}>
+              {timezoneOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </label>
           <label>
             Status
@@ -279,8 +318,14 @@ function SetupScreen({ showId, metaForm, setMetaForm, saving, onSave }) {
   );
 }
 
-function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, getConflicts, canEdit, dayForm, setDayForm, saving, onSaveDay }) {
+function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, canEdit, dayForm, setDayForm, saving, onSaveDay }) {
   const navigate = useNavigate();
+  const [editingDay, setEditingDay] = useState(false);
+
+  useEffect(() => {
+    setEditingDay(false);
+  }, [day?.id]);
+
   if (!day) {
     return (
       <section className="show-card sched3-card">
@@ -291,8 +336,11 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
   }
 
   const dayItems = sortItems(itemsByDay.get(day.id) || []);
-  const conflicts = getConflicts(day.id);
-  const warnings = getDayWarnings(day, dayItems, meta);
+
+  const handleSubmitDay = async (event) => {
+    const saved = await onSaveDay(event, day);
+    if (saved) setEditingDay(false);
+  };
 
   return (
     <div className="sched3-stack">
@@ -329,14 +377,14 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
             <p>Scheduled for this day.</p>
           </article>
           <article className="sched3-summary-card">
-            <span>Warnings</span>
-            <strong>{warnings.length + conflicts.length}</strong>
-            <p>{warnings.length ? warnings.join(' • ') : 'No warnings.'}</p>
-          </article>
-          <article className="sched3-summary-card">
             <span>Window</span>
             <strong>{meta.defaultDayStartTime} - {meta.defaultDayEndTime}</strong>
             <p>Configured daily operating window.</p>
+          </article>
+          <article className="sched3-summary-card">
+            <span>Summary</span>
+            <strong>{day.summary ? 'Added' : 'Empty'}</strong>
+            <p>{day.weather || 'No weather note added.'}</p>
           </article>
         </div>
       </section>
@@ -347,21 +395,21 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
             <h3>Day notes</h3>
             <p className="module-meta">{day.summary || 'No summary yet.'}</p>
           </div>
+          {canEdit ? (
+            <button className="show-btn-outline" type="button" onClick={() => setEditingDay((value) => !value)}>
+              <FiEdit3 /> {editingDay ? 'Hide edit' : 'Edit day'}
+            </button>
+          ) : null}
         </div>
         <div className="sched3-detail-meta">
           <span><FiCalendar size={14} /> {formatDateLabel(day.date, { weekday: 'long' })}</span>
           <span><FiClock size={14} /> {meta.defaultDayStartTime} - {meta.defaultDayEndTime}</span>
         </div>
-        {warnings.length ? (
-          <div className="sched3-pill-row">
-            {warnings.map((warning) => <span className="sched3-warning-pill" key={warning}>{warning}</span>)}
-          </div>
-        ) : null}
         <p className="sched3-body-copy">{day.notes || 'No operational notes yet.'}</p>
         {day.weather ? <p className="sched3-body-copy"><strong>Weather:</strong> {day.weather}</p> : null}
       </section>
 
-      {canEdit ? (
+      {canEdit && editingDay ? (
         <section className="show-card sched3-card">
           <div className="sched3-section-head">
             <div>
@@ -369,7 +417,7 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
               <p className="module-meta">Update summary, notes, weather, and active state.</p>
             </div>
           </div>
-          <form className="sched3-form" onSubmit={(event) => onSaveDay(event, day)}>
+          <form className="sched3-form" onSubmit={handleSubmitDay}>
             <label>
               Summary
               <input value={dayForm.summary} onChange={(event) => setDayForm((prev) => ({ ...prev, summary: event.target.value }))} />
@@ -390,6 +438,9 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
               <textarea rows={5} value={dayForm.notes} onChange={(event) => setDayForm((prev) => ({ ...prev, notes: event.target.value }))} />
             </label>
             <div className="sched3-action-stack">
+              <button className="show-btn-outline" type="button" onClick={() => setEditingDay(false)}>
+                Cancel
+              </button>
               <button className="show-btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save day notes'}</button>
             </div>
           </form>
@@ -406,7 +457,6 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
         {dayItems.length ? (
           <div className="sched3-item-list">
             {dayItems.map((item) => {
-              const itemConflicts = getConflictsForItem(item.id, conflicts);
               return (
                 <button key={item.id} type="button" className="sched3-item-card" onClick={() => navigate(`../item/${item.id}`)}>
                   <div className="sched3-item-time">
@@ -417,7 +467,6 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
                     <span className={`sched3-status-pill tone-${getStatusMeta(item.status).tone}`}>{getStatusMeta(item.status).label}</span>
                     <strong>{item.title}</strong>
                     {item.subtitle ? <p>{item.subtitle}</p> : null}
-                    {itemConflicts.length ? <span className="sched3-item-warning"><FiAlertCircle size={12} /> Overlap detected</span> : null}
                   </div>
                 </button>
               );
@@ -433,8 +482,9 @@ function DayScreen({ showId, day, dayIndex, prevDay, nextDay, meta, itemsByDay, 
   );
 }
 
-function ItemDetailScreen({ showId, item, day, conflicts, canEdit, onDelete }) {
+function ItemDetailScreen({ showId, item, day, canEdit, onDelete }) {
   const navigate = useNavigate();
+  const [imageExpanded, setImageExpanded] = useState(false);
   if (!item) {
     return (
       <section className="show-card sched3-card">
@@ -460,9 +510,11 @@ function ItemDetailScreen({ showId, item, day, conflicts, canEdit, onDelete }) {
       </section>
       <article className="show-card sched3-card sched3-item-detail-card">
         {item.imageUrl ? (
-          <div className="sched3-detail-image">
-            <img src={item.imageUrl} alt="" />
-          </div>
+          <button type="button" className="sched3-thumb-button" onClick={() => setImageExpanded(true)}>
+            <div className="sched3-thumb-image">
+              <img src={item.imageUrl} alt="" />
+            </div>
+          </button>
         ) : (
           <div className="sched3-detail-image sched3-detail-image-empty">
             <FiImage size={24} />
@@ -483,12 +535,6 @@ function ItemDetailScreen({ showId, item, day, conflicts, canEdit, onDelete }) {
             {item.tags.map((tag) => <span className="sched3-tag-pill" key={tag}>{tag}</span>)}
           </div>
         ) : null}
-        {conflicts.length ? (
-          <div className="sched3-warning-box">
-            <FiAlertCircle size={16} />
-            <span>This item overlaps another scheduled item.</span>
-          </div>
-        ) : null}
         <section className="sched3-notes-panel">
           <h3>Operational notes</h3>
           <p>{item.notes || 'No operational notes yet.'}</p>
@@ -501,6 +547,13 @@ function ItemDetailScreen({ showId, item, day, conflicts, canEdit, onDelete }) {
           </div>
         ) : null}
       </article>
+      {imageExpanded ? (
+        <div className="sched3-lightbox" role="dialog" aria-modal="true" onClick={() => setImageExpanded(false)}>
+          <div className="sched3-lightbox-frame" onClick={(event) => event.stopPropagation()}>
+            <img src={item.imageUrl} alt="" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -523,7 +576,7 @@ function ItemEditorScreen({ showId, mode, item, days, meta, saving, onCreate, on
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const payload = parseItemPayload(form);
+    const payload = parseItemPayload(form, days);
     const nextValidation = validateScheduleItem(payload, meta);
     setValidation(nextValidation);
     if (!nextValidation.isValid) return;
@@ -577,13 +630,13 @@ function ItemEditorScreen({ showId, mode, item, days, meta, saving, onCreate, on
             </select>
           </label>
           <label>
-            Start
-            <input type="datetime-local" value={form.startAt} onChange={(event) => setForm((prev) => ({ ...prev, startAt: event.target.value }))} />
+            Start time
+            <input type="time" value={form.startTime} onChange={(event) => setForm((prev) => ({ ...prev, startTime: event.target.value }))} />
             {validation.errors.startAt ? <span className="sched3-field-error">{validation.errors.startAt}</span> : null}
           </label>
           <label>
-            End
-            <input type="datetime-local" value={form.endAt} onChange={(event) => setForm((prev) => ({ ...prev, endAt: event.target.value }))} />
+            End time
+            <input type="time" value={form.endTime} onChange={(event) => setForm((prev) => ({ ...prev, endTime: event.target.value }))} />
             {validation.errors.endAt ? <span className="sched3-field-error">{validation.errors.endAt}</span> : null}
           </label>
           <label>
@@ -614,12 +667,6 @@ function ItemEditorScreen({ showId, mode, item, days, meta, saving, onCreate, on
             Notes
             <textarea rows={5} value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} />
           </label>
-          {validation.warnings.length ? (
-            <div className="sched3-warning-box">
-              <FiAlertCircle size={16} />
-              <span>{validation.warnings.join(' ')}</span>
-            </div>
-          ) : null}
           <div className="sched3-action-stack">
             <button className="show-btn" type="submit" disabled={saving}>{saving ? 'Saving...' : mode === 'edit' ? 'Save changes' : 'Create item'}</button>
           </div>
@@ -652,7 +699,6 @@ export default function ShowScheduling() {
     deleteItem,
     updateMeta,
     updateDay,
-    getConflicts,
   } = useShowSchedule(showId);
 
   const selectedDay = useMemo(() => days.find((day) => day.id === selectedDayId) || days[0] || null, [days, selectedDayId]);
@@ -670,9 +716,8 @@ export default function ShowScheduling() {
 
   const handleCreate = async (payload) => {
     try {
-      const validation = await createItem(payload);
+      await createItem(payload);
       notify('Schedule item created.', 'success');
-      if (validation?.warnings?.length) notify(validation.warnings[0], 'info');
     } catch (error) {
       notify(error?.message || 'Failed to create schedule item.', 'error');
       throw error;
@@ -681,9 +726,8 @@ export default function ShowScheduling() {
 
   const handleUpdate = async (itemId, payload) => {
     try {
-      const validation = await updateItem(itemId, payload);
+      await updateItem(itemId, payload);
       notify('Schedule item updated.', 'success');
-      if (validation?.warnings?.length) notify(validation.warnings[0], 'info');
     } catch (error) {
       notify(error?.message || 'Failed to update schedule item.', 'error');
       throw error;
@@ -728,8 +772,10 @@ export default function ShowScheduling() {
     try {
       await updateDay(day.id, dayForm);
       notify('Day notes saved.', 'success');
+      return true;
     } catch (error) {
       notify(error?.message || 'Failed to save day notes.', 'error');
+      return false;
     }
   };
 
@@ -747,11 +793,11 @@ export default function ShowScheduling() {
           </section>
         ) : (
           <Routes>
-            <Route index element={<OverviewScreen showId={showId} meta={meta} days={days} itemsByDay={itemsByDay} selectedDay={selectedDay} getConflicts={getConflicts} canEdit={canEdit} />} />
+            <Route index element={<OverviewScreen showId={showId} meta={meta} days={days} itemsByDay={itemsByDay} selectedDay={selectedDay} canEdit={canEdit} />} />
             <Route path="setup" element={<SetupScreen showId={showId} metaForm={metaForm} setMetaForm={setMetaForm} saving={saving} onSave={handleSaveSetup} />} />
-            <Route path="day/:dayId" element={<DayRoute showId={showId} days={days} meta={meta} itemsByDay={itemsByDay} getConflicts={getConflicts} canEdit={canEdit} dayForm={dayForm} setDayForm={setDayForm} saving={saving} onSaveDay={handleSaveDay} />} />
+            <Route path="day/:dayId" element={<DayRoute showId={showId} days={days} meta={meta} itemsByDay={itemsByDay} canEdit={canEdit} dayForm={dayForm} setDayForm={setDayForm} saving={saving} onSaveDay={handleSaveDay} />} />
             <Route path="item/new" element={<ItemEditorScreen showId={showId} mode="create" item={null} days={days} meta={meta} saving={saving} onCreate={handleCreate} onUpdate={handleUpdate} />} />
-            <Route path="item/:itemId" element={<ItemDetailRoute showId={showId} itemsById={itemsById} days={days} getConflicts={getConflicts} canEdit={canEdit} onDelete={handleDelete} />} />
+            <Route path="item/:itemId" element={<ItemDetailRoute showId={showId} itemsById={itemsById} days={days} canEdit={canEdit} onDelete={handleDelete} />} />
             <Route path="item/:itemId/edit" element={<ItemEditorRoute showId={showId} itemsById={itemsById} days={days} meta={meta} saving={saving} onCreate={handleCreate} onUpdate={handleUpdate} />} />
             <Route path="*" element={<Navigate to="." replace />} />
           </Routes>
@@ -761,7 +807,7 @@ export default function ShowScheduling() {
   );
 }
 
-function DayRoute({ showId, days, meta, itemsByDay, getConflicts, canEdit, dayForm, setDayForm, saving, onSaveDay }) {
+function DayRoute({ showId, days, meta, itemsByDay, canEdit, dayForm, setDayForm, saving, onSaveDay }) {
   const { dayId } = useParams();
   const dayIndex = days.findIndex((day) => day.id === dayId);
   const day = dayIndex >= 0 ? days[dayIndex] : null;
@@ -777,7 +823,6 @@ function DayRoute({ showId, days, meta, itemsByDay, getConflicts, canEdit, dayFo
       nextDay={nextDay}
       meta={meta}
       itemsByDay={itemsByDay}
-      getConflicts={getConflicts}
       canEdit={canEdit}
       dayForm={dayForm}
       setDayForm={setDayForm}
@@ -787,19 +832,17 @@ function DayRoute({ showId, days, meta, itemsByDay, getConflicts, canEdit, dayFo
   );
 }
 
-function ItemDetailRoute({ showId, itemsById, days, getConflicts, canEdit, onDelete }) {
+function ItemDetailRoute({ showId, itemsById, days, canEdit, onDelete }) {
   const navigate = useNavigate();
   const { itemId } = useParams();
   const item = itemsById[itemId] || null;
   const day = days.find((entry) => entry.id === item?.dayId) || null;
-  const conflicts = item && day ? getConflicts(day.id) : [];
 
   return (
     <ItemDetailScreen
       showId={showId}
       item={item}
       day={day}
-      conflicts={item ? getConflictsForItem(item.id, conflicts) : []}
       canEdit={canEdit}
       onDelete={async () => {
         await onDelete(item);

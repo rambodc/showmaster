@@ -32,6 +32,8 @@ export default function useShowSchedule(showId) {
   const [selectedDayId, setSelectedDayId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [metaLoaded, setMetaLoaded] = useState(false);
+  const [daysLoaded, setDaysLoaded] = useState(false);
   const seededRef = useRef(false);
 
   useEffect(() => {
@@ -41,28 +43,33 @@ export default function useShowSchedule(showId) {
       setItems([]);
       setSelectedDayId('');
       setLoading(false);
+      setMetaLoaded(false);
+      setDaysLoaded(false);
       return undefined;
     }
 
     setLoading(true);
-
-    let metaLoaded = false;
-    let daysLoaded = false;
+    setMetaLoaded(false);
+    setDaysLoaded(false);
+    let localMetaLoaded = false;
+    let localDaysLoaded = false;
     let itemsLoaded = false;
     const maybeDone = () => {
-      if (metaLoaded && daysLoaded && itemsLoaded) setLoading(false);
+      if (localMetaLoaded && localDaysLoaded && itemsLoaded) setLoading(false);
     };
 
     const unsubMeta = onSnapshot(
       doc(db, 'shows', showId, META_COLLECTION, 'meta'),
       (snap) => {
         setMeta(snap.exists() ? { id: snap.id, ...snap.data() } : null);
-        metaLoaded = true;
+        localMetaLoaded = true;
+        setMetaLoaded(true);
         maybeDone();
       },
       () => {
         setMeta(null);
-        metaLoaded = true;
+        localMetaLoaded = true;
+        setMetaLoaded(true);
         maybeDone();
       }
     );
@@ -71,12 +78,14 @@ export default function useShowSchedule(showId) {
       query(collection(db, 'shows', showId, DAYS_COLLECTION), orderBy('sortOrder', 'asc')),
       (snap) => {
         setDays(snap.docs.map((dayDoc) => ({ id: dayDoc.id, ...dayDoc.data() })));
-        daysLoaded = true;
+        localDaysLoaded = true;
+        setDaysLoaded(true);
         maybeDone();
       },
       () => {
         setDays([]);
-        daysLoaded = true;
+        localDaysLoaded = true;
+        setDaysLoaded(true);
         maybeDone();
       }
     );
@@ -103,7 +112,7 @@ export default function useShowSchedule(showId) {
   }, [showId]);
 
   useEffect(() => {
-    if (!showId || meta || days.length || seededRef.current) return;
+    if (!showId || !metaLoaded || !daysLoaded || meta || days.length || seededRef.current) return;
     seededRef.current = true;
 
     const seed = async () => {
@@ -128,7 +137,7 @@ export default function useShowSchedule(showId) {
     seed().catch(() => {
       seededRef.current = false;
     });
-  }, [days.length, meta, showId]);
+  }, [days.length, daysLoaded, meta, metaLoaded, showId]);
 
   const mergedDays = useMemo(() => mergeDays(meta || defaultScheduleMeta(), days), [days, meta]);
   const normalizedItems = useMemo(() => items.map((item) => normalizeItem(item)), [items]);
