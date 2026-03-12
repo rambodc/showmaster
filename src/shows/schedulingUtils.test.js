@@ -47,23 +47,20 @@ describe('schedulingUtils', () => {
     expect(getDefaultSelectedDay(days, new Date('2026-03-02T12:00:00.000Z'))).toBe('day-2');
   });
 
-  test('computeConflicts reports overlaps within the same location', () => {
+  test('computeConflicts reports overlaps across the day schedule', () => {
     const conflicts = computeConflicts([
       {
         id: 'a',
-        locationId: 'main-stage',
         startAt: '2026-03-01T09:00:00.000Z',
         endAt: '2026-03-01T10:30:00.000Z',
       },
       {
         id: 'b',
-        locationId: 'main-stage',
         startAt: '2026-03-01T10:00:00.000Z',
         endAt: '2026-03-01T11:00:00.000Z',
       },
       {
         id: 'c',
-        locationId: 'river-stage',
         startAt: '2026-03-01T10:00:00.000Z',
         endAt: '2026-03-01T11:00:00.000Z',
       },
@@ -72,8 +69,11 @@ describe('schedulingUtils', () => {
     expect(conflicts).toEqual([
       {
         type: 'overlap',
-        locationId: 'main-stage',
         itemIds: ['a', 'b'],
+      },
+      {
+        type: 'overlap',
+        itemIds: ['b', 'c'],
       },
     ]);
   });

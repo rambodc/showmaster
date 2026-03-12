@@ -131,10 +131,7 @@ export default function useShowSchedule(showId) {
   }, [days.length, meta, showId]);
 
   const mergedDays = useMemo(() => mergeDays(meta || defaultScheduleMeta(), days), [days, meta]);
-  const normalizedItems = useMemo(
-    () => items.map((item) => normalizeItem(item, meta?.locations || [])),
-    [items, meta?.locations]
-  );
+  const normalizedItems = useMemo(() => items.map((item) => normalizeItem(item)), [items]);
 
   useEffect(() => {
     if (!mergedDays.length) {
@@ -227,6 +224,12 @@ export default function useShowSchedule(showId) {
       const nextMeta = { ...(meta || defaultScheduleMeta()), ...patch };
       const nextDays = mergeDays(nextMeta, days);
       const batch = writeBatch(db);
+      const nextDayIds = new Set(nextDays.map((day) => day.id));
+      days.forEach((day) => {
+        if (!nextDayIds.has(day.id)) {
+          batch.delete(doc(db, 'shows', showId, DAYS_COLLECTION, day.id));
+        }
+      });
       nextDays.forEach((day) => {
         batch.set(doc(db, 'shows', showId, DAYS_COLLECTION, day.id), {
           ...day,

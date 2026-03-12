@@ -117,11 +117,6 @@ export function defaultScheduleMeta() {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     defaultDayStartTime: '08:00',
     defaultDayEndTime: '23:00',
-    locations: [
-      { id: 'main-stage', name: 'Main Stage' },
-      { id: 'river-stage', name: 'River Stage' },
-      { id: 'courtyard', name: 'Courtyard' },
-    ],
     status: 'draft',
     version: 1,
   };
@@ -212,30 +207,20 @@ export function getDayWarnings(day, dayItems, meta) {
 }
 
 export function computeConflicts(items = []) {
-  const byLocation = new Map();
-  items.forEach((item) => {
-    const bucket = byLocation.get(item.locationId) || [];
-    bucket.push(item);
-    byLocation.set(item.locationId, bucket);
-  });
-
   const conflicts = [];
-  byLocation.forEach((locationItems) => {
-    const sorted = [...locationItems].sort((a, b) => toDate(a.startAt) - toDate(b.startAt));
-    for (let i = 0; i < sorted.length - 1; i += 1) {
-      const current = sorted[i];
-      const next = sorted[i + 1];
-      const currentEnd = toDate(current.endAt)?.getTime?.() || 0;
-      const nextStart = toDate(next.startAt)?.getTime?.() || 0;
-      if (currentEnd > nextStart) {
-        conflicts.push({
-          type: 'overlap',
-          locationId: current.locationId,
-          itemIds: [current.id, next.id],
-        });
-      }
+  const sorted = [...items].sort((a, b) => toDate(a.startAt) - toDate(b.startAt));
+  for (let i = 0; i < sorted.length - 1; i += 1) {
+    const current = sorted[i];
+    const next = sorted[i + 1];
+    const currentEnd = toDate(current.endAt)?.getTime?.() || 0;
+    const nextStart = toDate(next.startAt)?.getTime?.() || 0;
+    if (currentEnd > nextStart) {
+      conflicts.push({
+        type: 'overlap',
+        itemIds: [current.id, next.id],
+      });
     }
-  });
+  }
   return conflicts;
 }
 
@@ -243,7 +228,7 @@ export function getConflictsForItem(itemId, conflicts = []) {
   return conflicts.filter((conflict) => conflict.itemIds.includes(itemId));
 }
 
-export function normalizeItem(item, locations = []) {
+export function normalizeItem(item) {
   const colorToken = item?.colorToken || 'sky';
   return {
     ...item,
@@ -256,7 +241,6 @@ export function normalizeItem(item, locations = []) {
     visibility: item?.visibility || 'internal',
     colorToken,
     colorValue: COLOR_STYLES[colorToken] || COLOR_STYLES.sky,
-    locationName: locations.find((location) => location.id === item?.locationId)?.name || 'Unassigned',
   };
 }
 
@@ -269,7 +253,6 @@ export function validateScheduleItem(payload, meta) {
   const warnings = [];
 
   if (!String(payload.title || '').trim()) errors.title = 'Title is required.';
-  if (!payload.locationId) errors.locationId = 'Location is required.';
   if (!payload.startAt) errors.startAt = 'Start time is required.';
   if (!payload.endAt) errors.endAt = 'End time is required.';
 
