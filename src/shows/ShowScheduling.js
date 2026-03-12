@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   FiAlertCircle,
@@ -232,12 +232,42 @@ function DailyTimeline({
   selectedItemId,
   onSelectItem,
   onAddItem,
+  isMobile,
 }) {
   const markers = useMemo(
     () => buildTimeMarkers(meta.defaultDayStartTime, meta.defaultDayEndTime, 60),
     [meta.defaultDayEndTime, meta.defaultDayStartTime]
   );
   const timeHeight = Math.max((markers.length - 1) * 84, 420);
+
+  if (isMobile) {
+    return (
+      <section className="schedule-workspace">
+        <article className="show-card schedule-timeline-card">
+          <div className="schedule-section-head">
+            <div>
+              <h3>{selectedDay?.label || 'Daily timeline'}</h3>
+              <p className="module-meta">
+                {selectedDay ? formatLongDate(selectedDay.date) : 'Select a day to see timed operations.'}
+              </p>
+            </div>
+            <div className="schedule-inline-note">
+              <FiClock size={14} />
+              <span>{meta.defaultDayStartTime} - {meta.defaultDayEndTime}</span>
+            </div>
+          </div>
+          <MobileDailyAgenda
+            meta={meta}
+            dayItems={dayItems}
+            conflicts={conflicts}
+            selectedItemId={selectedItemId}
+            onSelectItem={onSelectItem}
+            onAddItem={onAddItem}
+          />
+        </article>
+      </section>
+    );
+  }
 
   return (
     <section className="schedule-workspace">
@@ -291,6 +321,80 @@ function DailyTimeline({
         )}
       </article>
     </section>
+  );
+}
+
+function MobileDailyAgenda({
+  meta,
+  dayItems,
+  conflicts,
+  selectedItemId,
+  onSelectItem,
+  onAddItem,
+}) {
+  if (!meta.locations?.length) {
+    return (
+      <div className="schedule-empty-state">
+        <h4>Add locations first</h4>
+        <p className="module-meta">Festival setup needs at least one location lane before events can be placed.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="schedule-mobile-agenda">
+      {meta.locations.map((location) => {
+        const laneItems = dayItems
+          .filter((item) => item.locationId === location.id)
+          .sort((a, b) => toDate(a.startAt) - toDate(b.startAt));
+        return (
+          <section className="schedule-mobile-lane" key={location.id}>
+            <div className="schedule-mobile-lane-head">
+              <div>
+                <strong>{location.name}</strong>
+                <p>{laneItems.length} items</p>
+              </div>
+              <button className="show-btn-outline schedule-lane-add" type="button" onClick={() => onAddItem(location.id)}>
+                <FiPlus />
+              </button>
+            </div>
+            {laneItems.length ? (
+              <div className="schedule-mobile-item-list">
+                {laneItems.map((item) => {
+                  const itemConflicts = getConflictsForItem(item.id, conflicts);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={selectedItemId === item.id ? 'schedule-mobile-item active' : 'schedule-mobile-item'}
+                      onClick={() => onSelectItem(item.id)}
+                      style={{ '--schedule-item-color': item.colorValue }}
+                    >
+                      <span className={`schedule-status-pill tone-${getStatusMeta(item.status).tone}`}>{getStatusMeta(item.status).label}</span>
+                      <strong>{item.title}</strong>
+                      <span className="schedule-mobile-item-time">
+                        {formatTimeLabel(item.startAt)} - {formatTimeLabel(item.endAt)}
+                      </span>
+                      {item.subtitle ? <span className="schedule-item-subtitle">{item.subtitle}</span> : null}
+                      {itemConflicts.length ? (
+                        <span className="schedule-item-warning">
+                          <FiAlertCircle size={12} /> Overlap in this lane
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <button type="button" className="schedule-lane-empty schedule-lane-empty-mobile" onClick={() => onAddItem(location.id)}>
+                <FiPlus size={16} />
+                <span>Add the first item</span>
+              </button>
+            )}
+          </section>
+        );
+      })}
+    </div>
   );
 }
 
@@ -658,6 +762,7 @@ export default function ShowScheduling() {
   const [itemValidation, setItemValidation] = useState({ errors: {}, warnings: [] });
   const [metaForm, setMetaForm] = useState(() => buildMetaForm(meta));
   const [dayForm, setDayForm] = useState({ summary: '', notes: '', weather: '', isActive: true });
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 760 : false));
 
   const selectedItem = useMemo(() => dayItems.find((item) => item.id === selectedItemId) || dayItems[0] || null, [dayItems, selectedItemId]);
 
@@ -674,6 +779,19 @@ export default function ShowScheduling() {
   React.useEffect(() => {
     setMetaForm(buildMetaForm(meta));
   }, [meta]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const media = window.matchMedia('(max-width: 760px)');
+    const onChange = (event) => setIsMobile(event.matches);
+    setIsMobile(media.matches);
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', onChange);
+      return () => media.removeEventListener('change', onChange);
+    }
+    media.addListener(onChange);
+    return () => media.removeListener(onChange);
+  }, []);
 
   const openCreateModal = (locationId = '') => {
     const next = buildDefaultItemForm(selectedDay, meta);
@@ -830,6 +948,7 @@ export default function ShowScheduling() {
                   selectedItemId={selectedItem?.id || ''}
                   onSelectItem={setSelectedItemId}
                   onAddItem={openCreateModal}
+                  isMobile={isMobile}
                 />
                 <ScheduleItemDetail
                   item={selectedItem}
