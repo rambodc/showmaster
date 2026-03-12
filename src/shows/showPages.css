@@ -1294,3 +1294,359 @@
     aspect-ratio: 4 / 3;
   }
 }
+
+.sched3-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.sched3-card,
+.sched3-hero {
+  padding: 16px;
+  border-radius: 22px;
+}
+
+.sched3-hero {
+  background:
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 32%),
+    radial-gradient(circle at bottom left, rgba(251, 191, 36, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+}
+
+.sched3-hero-copy,
+.sched3-action-stack,
+.sched3-summary-grid,
+.sched3-day-list,
+.sched3-location-stack,
+.sched3-item-list,
+.sched3-detail-copy,
+.sched3-notes-panel,
+.sched3-form,
+.sched3-pill-row {
+  display: grid;
+  gap: 12px;
+}
+
+.sched3-action-stack {
+  margin-top: 14px;
+}
+
+.sched3-action-stack .show-btn,
+.sched3-action-stack .show-btn-outline,
+.sched3-action-stack .show-btn-danger {
+  width: 100%;
+  justify-content: center;
+}
+
+.sched3-summary-grid {
+  margin-top: 18px;
+  grid-template-columns: 1fr;
+}
+
+.sched3-summary-card,
+.sched3-day-card,
+.sched3-item-detail-card,
+.sched3-empty-block {
+  border: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 18px;
+}
+
+.sched3-summary-card {
+  padding: 14px;
+}
+
+.sched3-summary-card span,
+.sched3-kicker {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0369a1;
+  font-weight: 800;
+}
+
+.sched3-summary-card strong {
+  font-size: 1.05rem;
+}
+
+.sched3-summary-card p,
+.sched3-day-card p,
+.sched3-item-body p,
+.sched3-body-copy,
+.sched3-notes-panel p,
+.sched3-detail-copy p {
+  margin: 0;
+  color: #475569;
+}
+
+.sched3-section-head,
+.sched3-day-card-head,
+.sched3-location-head,
+.sched3-day-nav-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.sched3-day-list,
+.sched3-location-stack,
+.sched3-item-list {
+  margin-top: 14px;
+}
+
+.sched3-day-card {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.sched3-day-card h4,
+.sched3-section-head h3,
+.sched3-location-head h3,
+.sched3-notes-panel h3,
+.sched3-item-detail-card h2 {
+  margin: 0;
+}
+
+.sched3-day-card-meta,
+.sched3-detail-meta {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+}
+
+.sched3-day-card-meta span,
+.sched3-detail-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sched3-day-card-summary {
+  font-size: 0.96rem;
+}
+
+.sched3-warning-pill,
+.sched3-tag-pill,
+.sched3-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.sched3-warning-pill {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.sched3-tag-pill {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  color: #075985;
+}
+
+.sched3-status-pill {
+  justify-self: start;
+}
+
+.sched3-prev-next {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sched3-item-card {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid #dbeafe;
+  background: #fff;
+  text-align: left;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+
+.sched3-item-time {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sched3-item-time span:last-child {
+  color: #64748b;
+}
+
+.sched3-item-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sched3-item-warning,
+.sched3-warning-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sched3-item-warning {
+  color: #b45309;
+  font-size: 0.82rem;
+}
+
+.sched3-warning-box {
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.sched3-item-detail-card {
+  padding: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.sched3-detail-layout {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.sched3-detail-image {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid #dbeafe;
+  background: linear-gradient(145deg, #dbeafe, #eff6ff);
+  aspect-ratio: 4 / 3;
+}
+
+.sched3-detail-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sched3-detail-image-empty {
+  display: grid;
+  place-items: center;
+  color: #0369a1;
+}
+
+.sched3-notes-panel {
+  padding: 14px;
+  border-radius: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.sched3-form label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.sched3-form input,
+.sched3-form select,
+.sched3-form textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #dbeafe;
+  background: #fff;
+  padding: 11px 12px;
+}
+
+.sched3-field-error {
+  color: #b91c1c;
+  font-size: 0.82rem;
+}
+
+.sched3-empty-block {
+  padding: 16px;
+}
+
+.tone-scheduled {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.tone-confirmed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tone-highlight {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.tone-blocked {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.tone-draft {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+@media (min-width: 900px) {
+  .sched3-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sched3-day-list,
+  .sched3-location-stack {
+    gap: 16px;
+  }
+
+  .sched3-hero,
+  .sched3-card {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 760px) {
+  .sched3-card,
+  .sched3-hero {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .sched3-section-head,
+  .sched3-day-card-head,
+  .sched3-location-head,
+  .sched3-day-nav-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sched3-prev-next {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .sched3-prev-next .show-btn-outline,
+  .sched3-day-card-head .show-btn-outline,
+  .sched3-location-head .show-btn-outline,
+  .sched3-back-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .sched3-item-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+    padding: 12px;
+  }
+}

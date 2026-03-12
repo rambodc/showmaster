@@ -99,7 +99,7 @@ function AppRoutes({ user }) {
           }
         />
         <Route
-          path="/shows/:showId/scheduling"
+          path="/shows/:showId/scheduling/*"
           element={
             <ProtectedRoute>
               <ShowScheduling />
