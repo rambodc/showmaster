@@ -3,6 +3,7 @@
 
 name: Deploy to Firebase Hosting on dev push
 on:
+  workflow_dispatch:
   push:
     branches:
       - dev
