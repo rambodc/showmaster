@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FiGrid, FiMenu, FiSettings, FiX } from 'react-icons/fi';
+import { FiGrid, FiMenu, FiSettings, FiTv, FiUsers, FiX } from 'react-icons/fi';
 import { UserContext } from '../App';
 import './AppShell.css';
 
@@ -28,7 +28,16 @@ export default function AppShell({
   const workspacePath = showRouteMatch ? `/shows/${showRouteMatch[1]}/workspace` : '';
   const showWorkspaceShortcut = Boolean(showBackButton && workspacePath && pathname !== workspacePath);
 
-  const items = useMemo(() => navItems || defaultNavItems, [navItems]);
+  const items = useMemo(() => {
+    if (navItems) return navItems;
+    if (appUser?.systemRole !== 'super_admin') return defaultNavItems;
+    return [
+      defaultNavItems[0],
+      { label: 'Users', to: '/admin/users', icon: FiUsers, matches: ['/admin/users'] },
+      { label: 'Shows Admin', to: '/admin/shows', icon: FiTv, matches: ['/admin/shows'] },
+      defaultNavItems[1],
+    ];
+  }, [appUser?.systemRole, navItems]);
   const brandTitle = showBackButton ? title : 'ShowMaster';
   const email = String(appUser?.email || '').trim();
   const truncate = (value, max = 34) => (value.length > max ? `${value.slice(0, max - 1)}…` : value);

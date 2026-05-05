@@ -21,6 +21,10 @@ import Home from './home/Home';
 import Account from './account';
 import ChangePassword from './account/ChangePassword';
 import Settings from './settings/Settings';
+import AdminUsers from './admin/AdminUsers';
+import AdminNewUser from './admin/AdminNewUser';
+import AdminUserDetail from './admin/AdminUserDetail';
+import AdminShows from './admin/AdminShows';
 import Profile from './profile/Profile';
 import Updates from './updates/Updates';
 import ShowWorkspace from './shows/ShowWorkspace';
@@ -159,6 +163,38 @@ function AppRoutes({ user }) {
           element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute>
+              <AdminUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users/new"
+          element={
+            <ProtectedRoute>
+              <AdminNewUser />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users/:uid"
+          element={
+            <ProtectedRoute>
+              <AdminUserDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/shows"
+          element={
+            <ProtectedRoute>
+              <AdminShows />
             </ProtectedRoute>
           }
         />

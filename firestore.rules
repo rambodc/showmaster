@@ -78,11 +78,16 @@ service cloud.firestore {
       allow create: if isSelf(uid) && userCreateIsSafe(uid);
       allow update: if isSuperAdmin() || (isSelf(uid) && userUpdateIsSafe());
       allow delete: if isSuperAdmin();
+
+      match /showAccess/{showId} {
+        allow read: if isSelf(uid) || isSuperAdmin();
+        allow write: if isSuperAdmin();
+      }
     }
 
     match /shows/{showId} {
       allow get: if canAccessShow(showId);
-      allow list: if signedIn();
+      allow list: if isSuperAdmin();
       allow create, update, delete: if isSuperAdmin();
 
       match /members/{memberId} {

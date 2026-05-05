@@ -24,6 +24,9 @@ export const removeUserFromShow = onCall({ region: 'us-central1' }, async (reque
     throw new HttpsError('failed-precondition', 'Show admin cannot remove themselves.');
   }
 
-  await db.collection('shows').doc(showId).collection('members').doc(userId).delete();
+  const batch = db.batch();
+  batch.delete(db.collection('shows').doc(showId).collection('members').doc(userId));
+  batch.delete(db.collection('users').doc(userId).collection('showAccess').doc(showId));
+  await batch.commit();
   return { ok: true };
 });

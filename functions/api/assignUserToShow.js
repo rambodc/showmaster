@@ -29,16 +29,38 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
 
   const user = userSnap.data() || {};
 
-  await db.collection('shows').doc(showId).collection('members').doc(userId).set({
+  const showRef = db.collection('shows').doc(showId);
+  const memberRef = showRef.collection('members').doc(userId);
+  const accessRef = db.collection('users').doc(userId).collection('showAccess').doc(showId);
+  const now = FieldValue.serverTimestamp();
+  const memberPayload = {
     uid: userId,
     email: user.email ? String(user.email).toLowerCase() : null,
     displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || null,
     showRole,
     moduleAccess,
     addedBy: callerUid,
-    updatedAt: FieldValue.serverTimestamp(),
-    createdAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+    updatedAt: now,
+    createdAt: now,
+  };
+  const accessPayload = {
+    showId,
+    showName: show.name || '',
+    showDescription: show.description || '',
+    status: show.status || 'active',
+    iconUrls: show.iconUrls || null,
+    iconUrl: show.iconUrl || null,
+    ownerId: show.ownerId || null,
+    showRole,
+    moduleAccess,
+    updatedAt: now,
+    createdAt: now,
+  };
+
+  const batch = db.batch();
+  batch.set(memberRef, memberPayload, { merge: true });
+  batch.set(accessRef, accessPayload, { merge: true });
+  await batch.commit();
 
   return { ok: true };
 });

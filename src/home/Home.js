@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { collection, collectionGroup, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { FiImage, FiRadio } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
@@ -16,45 +16,95 @@ function Home() {
   const navigate = useNavigate();
 
   const [shows, setShows] = useState([]);
-  const [memberShowIds, setMemberShowIds] = useState([]);
+  const [assignedShows, setAssignedShows] = useState([]);
+  const [assignedShowDetails, setAssignedShowDetails] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (appUser?.systemRole !== 'super_admin') {
+      setShows([]);
+      return undefined;
+    }
     const q = query(collection(db, 'shows'), orderBy('updatedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setShows(list);
+      setLoading(false);
+    }, () => {
+      setShows([]);
+      setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [appUser?.systemRole]);
 
   useEffect(() => {
     if (!appUser?.id) {
-      setMemberShowIds([]);
+      setAssignedShows([]);
+      setLoading(false);
       return undefined;
     }
 
-    const q = query(collectionGroup(db, 'members'), where('uid', '==', appUser.id));
+    if (appUser?.systemRole === 'super_admin') {
+      return undefined;
+    }
+
+    setLoading(true);
+    const q = query(collection(db, 'users', appUser.id, 'showAccess'), orderBy('updatedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
-      const ids = snap.docs.map((d) => d.ref.parent?.parent?.id).filter(Boolean);
-      setMemberShowIds(Array.from(new Set(ids)));
+      setAssignedShows(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    }, () => {
+      setAssignedShows([]);
+      setLoading(false);
     });
 
     return () => unsub();
-  }, [appUser?.id]);
+  }, [appUser?.id, appUser?.systemRole]);
+
+  useEffect(() => {
+    if (appUser?.systemRole === 'super_admin' || assignedShows.length === 0) {
+      setAssignedShowDetails({});
+      return undefined;
+    }
+
+    const unsubs = assignedShows
+      .map((show) => show.showId || show.id)
+      .filter(Boolean)
+      .map((showId) => onSnapshot(doc(db, 'shows', showId), (snap) => {
+        setAssignedShowDetails((prev) => ({
+          ...prev,
+          [showId]: snap.exists() ? { id: snap.id, ...snap.data() } : null,
+        }));
+      }));
+
+    return () => unsubs.forEach((unsub) => unsub());
+  }, [appUser?.systemRole, assignedShows]);
 
   const visibleShows = useMemo(() => {
     if (!appUser?.id) return [];
     if (appUser?.systemRole === 'super_admin') return shows;
-    const memberSet = new Set(memberShowIds);
-    return shows.filter((show) => show.ownerId === appUser.id || memberSet.has(show.id));
-  }, [appUser?.id, appUser?.systemRole, memberShowIds, shows]);
+    return assignedShows.map((show) => {
+      const showId = show.showId || show.id;
+      const liveShow = assignedShowDetails[showId];
+      return {
+        id: showId,
+        name: liveShow?.name || show.showName,
+        description: liveShow?.description || show.showDescription,
+        status: liveShow?.status || show.status,
+        iconUrls: liveShow?.iconUrls || show.iconUrls,
+        iconUrl: liveShow?.iconUrl || show.iconUrl,
+      };
+    });
+  }, [appUser?.id, appUser?.systemRole, assignedShowDetails, assignedShows, shows]);
 
   return (
     <AppShell title="All Shows">
       <div className="shows-layout">
         <section className="shows-list-card">
           <h3 style={{ marginTop: 0 }}>Assigned Shows</h3>
-          {visibleShows.length === 0 ? (
+          {loading ? (
+            <p className="shows-muted">Loading shows...</p>
+          ) : visibleShows.length === 0 ? (
             <p className="shows-muted">
               No shows assigned yet. Ask a super admin or show admin to assign you.
             </p>

@@ -26,8 +26,20 @@ export const updateShowMemberAccess = onCall({ region: 'us-central1' }, async (r
     throw new HttpsError('failed-precondition', 'Show admin cannot demote themselves.');
   }
 
+  const now = FieldValue.serverTimestamp();
   const updates = {
-    updatedAt: FieldValue.serverTimestamp(),
+    updatedAt: now,
+    updatedBy: callerUid,
+  };
+  const accessUpdates = {
+    showId,
+    showName: show.name || '',
+    showDescription: show.description || '',
+    status: show.status || 'active',
+    iconUrls: show.iconUrls || null,
+    iconUrl: show.iconUrl || null,
+    ownerId: show.ownerId || null,
+    updatedAt: now,
     updatedBy: callerUid,
   };
 
@@ -36,12 +48,18 @@ export const updateShowMemberAccess = onCall({ region: 'us-central1' }, async (r
       throw new HttpsError('invalid-argument', 'Invalid showRole.');
     }
     updates.showRole = showRole;
+    accessUpdates.showRole = showRole;
   }
 
   if (moduleAccess && typeof moduleAccess === 'object') {
-    updates.moduleAccess = normalizeModuleAccess(moduleAccess);
+    const normalizedAccess = normalizeModuleAccess(moduleAccess);
+    updates.moduleAccess = normalizedAccess;
+    accessUpdates.moduleAccess = normalizedAccess;
   }
 
-  await db.collection('shows').doc(showId).collection('members').doc(userId).set(updates, { merge: true });
+  const batch = db.batch();
+  batch.set(db.collection('shows').doc(showId).collection('members').doc(userId), updates, { merge: true });
+  batch.set(db.collection('users').doc(userId).collection('showAccess').doc(showId), accessUpdates, { merge: true });
+  await batch.commit();
   return { ok: true };
 });
