@@ -1,7 +1,6 @@
 {
   "projects": {
     "dev": "showmaster1-f1a9f",
-    "prod": "production1-fbd5d",
     "default": "showmaster1-f1a9f"
   },
   "targets": {
@@ -9,13 +8,6 @@
       "hosting": {
         "web": [
           "showmaster1-f1a9f"
-        ]
-      }
-    },
-    "production1-fbd5d": {
-      "hosting": {
-        "web": [
-          "production1-fbd5d"
         ]
       }
     }

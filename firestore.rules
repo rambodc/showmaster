@@ -1,0 +1,132 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function showPath(showId) {
+      return /databases/$(database)/documents/shows/$(showId);
+    }
+
+    function memberPath(showId, uid) {
+      return /databases/$(database)/documents/shows/$(showId)/members/$(uid);
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isSuperAdmin() {
+      return signedIn()
+        && exists(userPath(request.auth.uid))
+        && get(userPath(request.auth.uid)).data.systemRole == 'super_admin';
+    }
+
+    function isShowOwner(showId) {
+      return signedIn()
+        && exists(showPath(showId))
+        && get(showPath(showId)).data.ownerId == request.auth.uid;
+    }
+
+    function isShowMember(showId) {
+      return signedIn() && exists(memberPath(showId, request.auth.uid));
+    }
+
+    function isShowAdmin(showId) {
+      return isSuperAdmin()
+        || isShowOwner(showId)
+        || (
+          isShowMember(showId)
+          && get(memberPath(showId, request.auth.uid)).data.showRole == 'show_admin'
+        );
+    }
+
+    function canAccessShow(showId) {
+      return isSuperAdmin() || isShowOwner(showId) || isShowMember(showId);
+    }
+
+    function hasModuleAccess(showId, moduleKey) {
+      return isShowAdmin(showId)
+        || (
+          isShowMember(showId)
+          && get(memberPath(showId, request.auth.uid)).data.moduleAccess[moduleKey] == true
+        );
+    }
+
+    function userCreateIsSafe(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.systemRole == 'user';
+    }
+
+    function userUpdateIsSafe() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'systemRole',
+        'primaryAuthUid',
+        'uid'
+      ]);
+    }
+
+    match /users/{uid} {
+      allow get: if isSelf(uid) || isSuperAdmin();
+      allow list: if isSuperAdmin();
+      allow create: if isSelf(uid) && userCreateIsSafe(uid);
+      allow update: if isSuperAdmin() || (isSelf(uid) && userUpdateIsSafe());
+      allow delete: if isSuperAdmin();
+    }
+
+    match /shows/{showId} {
+      allow get: if canAccessShow(showId);
+      allow list: if signedIn();
+      allow create, update, delete: if isSuperAdmin();
+
+      match /members/{memberId} {
+        allow get: if isSelf(memberId) || isShowAdmin(showId);
+        allow list: if canAccessShow(showId);
+        allow write: if false;
+      }
+
+      match /modules/{moduleId} {
+        allow read: if canAccessShow(showId);
+        allow write: if isShowAdmin(showId);
+
+        match /objects/{objectId} {
+          allow read, write: if hasModuleAccess(showId, 'ai3d');
+        }
+
+        match /scene/{sceneId} {
+          allow read, write: if hasModuleAccess(showId, 'ai3d');
+        }
+      }
+
+      match /inventoryItems/{itemId} {
+        allow read, write: if hasModuleAccess(showId, 'inventory');
+      }
+
+      match /scheduleMeta/{docId} {
+        allow read, write: if hasModuleAccess(showId, 'scheduling');
+      }
+
+      match /scheduleDays/{dayId} {
+        allow read, write: if hasModuleAccess(showId, 'scheduling');
+      }
+
+      match /scheduleItems/{itemId} {
+        allow read, write: if hasModuleAccess(showId, 'scheduling');
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/(default)/documents/users/$(uid);
+    }
+
+    function showPath(showId) {
+      return /databases/(default)/documents/shows/$(showId);
+    }
+
+    function memberPath(showId, uid) {
+      return /databases/(default)/documents/shows/$(showId)/members/$(uid);
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isSuperAdmin() {
+      return signedIn()
+        && firestore.exists(userPath(request.auth.uid))
+        && firestore.get(userPath(request.auth.uid)).data.systemRole == 'super_admin';
+    }
+
+    function isShowOwner(showId) {
+      return signedIn()
+        && firestore.exists(showPath(showId))
+        && firestore.get(showPath(showId)).data.ownerId == request.auth.uid;
+    }
+
+    function isShowMember(showId) {
+      return signedIn() && firestore.exists(memberPath(showId, request.auth.uid));
+    }
+
+    function isShowAdmin(showId) {
+      return isSuperAdmin()
+        || isShowOwner(showId)
+        || (
+          isShowMember(showId)
+          && firestore.get(memberPath(showId, request.auth.uid)).data.showRole == 'show_admin'
+        );
+    }
+
+    function canAccessShow(showId) {
+      return isSuperAdmin() || isShowOwner(showId) || isShowMember(showId);
+    }
+
+    function hasModuleAccess(showId, moduleKey) {
+      return isShowAdmin(showId)
+        || (
+          isShowMember(showId)
+          && firestore.get(memberPath(showId, request.auth.uid)).data.moduleAccess[moduleKey] == true
+        );
+    }
+
+    match /users/{uid}/{fileName=**} {
+      allow read: if signedIn();
+      allow write: if isSelf(uid);
+    }
+
+    match /shows/{showId}/icons/{fileName=**} {
+      allow read: if canAccessShow(showId);
+      allow write: if isShowAdmin(showId);
+    }
+
+    match /shows/{showId}/ai3d-assets/{fileName=**} {
+      allow read, write: if hasModuleAccess(showId, 'ai3d');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
