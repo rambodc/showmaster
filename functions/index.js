@@ -15,6 +15,7 @@ import {
 } from './api/jobs.js';
 
 // Deployment sentinel: keep this file in sync with the exported callable functions.
+// Jobs architecture callables are exported here so CI deploys them with functions changes.
 export {
   createInternalUser,
   assignUserToShow,
