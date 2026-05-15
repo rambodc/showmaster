@@ -1,20 +1,13 @@
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { FiArrowLeft, FiCalendar, FiCpu, FiGrid, FiHardDrive, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiBriefcase, FiGrid, FiUsers } from 'react-icons/fi';
 import { db } from '../firebase';
 import { MODULE_KEYS, MODULE_META } from './moduleCatalog';
 
 export { MODULE_KEYS, MODULE_META };
 
-const MODULE_ICON_MAP = {
-  scheduling: FiCalendar,
-  inventory: FiHardDrive,
-  artists: FiUsers,
-  ai3d: FiCpu,
-};
-
 export function getModuleIcon(moduleKey) {
-  return MODULE_ICON_MAP[moduleKey] || FiGrid;
+  return FiGrid;
 }
 
 export function getModuleDescription(moduleKey) {
@@ -22,9 +15,7 @@ export function getModuleDescription(moduleKey) {
 }
 
 export function normalizeModuleAccess(input = {}) {
-  const out = {};
-  for (const key of MODULE_KEYS) out[key] = Boolean(input[key]);
-  return out;
+  return {};
 }
 
 export function useShowContext({ showId, appUser }) {
@@ -84,13 +75,15 @@ export function useShowContext({ showId, appUser }) {
     const isSuperAdmin = appUser?.systemRole === 'super_admin';
     const showRole = member?.showRole || null;
     const hasShowAccess = Boolean(isSuperAdmin || showRole || show?.ownerId === appUser?.id);
-    const isShowAdmin = Boolean(isSuperAdmin || showRole === 'show_admin' || show?.ownerId === appUser?.id);
+    const isShowOwner = Boolean(showRole === 'show_owner' || show?.ownerId === appUser?.id);
+    const isShowAdmin = Boolean(isSuperAdmin || isShowOwner || showRole === 'show_admin');
 
     return {
       loading,
       show,
       member,
       isSuperAdmin,
+      isShowOwner,
       showRole,
       hasShowAccess,
       isShowAdmin,
@@ -99,9 +92,7 @@ export function useShowContext({ showId, appUser }) {
 }
 
 export function canAccessModule({ moduleKey, moduleEnabled, ctx }) {
-  if (!moduleEnabled) return false;
-  if (ctx?.isSuperAdmin || ctx?.isShowAdmin) return true;
-  return Boolean(ctx?.member?.moduleAccess?.[moduleKey]);
+  return false;
 }
 
 export function buildShowPath(showName, moduleKey) {
@@ -117,26 +108,20 @@ export function buildShowNavItems({ showId, modules, ctx }) {
     to: '/shows',
     matches: ['/shows', '/home'],
   };
-  const workspace = {
-    label: 'Workspace',
-    icon: FiGrid,
-    to: `/shows/${showId}/workspace`,
-    matches: [`/shows/${showId}/workspace`],
+  const jobs = {
+    label: 'Jobs',
+    icon: FiBriefcase,
+    to: `/shows/${showId}/jobs`,
+    matches: [`/shows/${showId}/jobs`],
+  };
+  const members = {
+    label: 'Members',
+    icon: FiUsers,
+    to: `/shows/${showId}/members`,
+    matches: [`/shows/${showId}/members`],
   };
 
-  const moduleItems = (modules || [])
-    .filter((m) => canAccessModule({ moduleKey: m.key, moduleEnabled: m.enabled, ctx }))
-    .map((m) => {
-      const route = MODULE_META[m.key]?.route || m.key;
-      return {
-        label: MODULE_META[m.key]?.label || m.name || m.key,
-        icon: getModuleIcon(m.key),
-        to: `/shows/${showId}/${route}`,
-        matches: [`/shows/${showId}/${route}`],
-      };
-    });
-
-  return [allShows, workspace, ...moduleItems];
+  return ctx?.isShowAdmin ? [allShows, jobs, members] : [allShows, jobs];
 }
 
 export function hasShowPermission(ctx, permission) {
@@ -145,6 +130,6 @@ export function hasShowPermission(ctx, permission) {
 
   if (permission === 'view_show') return true;
   if (permission === 'manage_members') return Boolean(ctx?.isShowAdmin);
-  if (permission === 'manage_modules') return Boolean(ctx?.isShowAdmin);
+  if (permission === 'manage_jobs') return Boolean(ctx?.isShowAdmin);
   return false;
 }

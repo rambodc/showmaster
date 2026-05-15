@@ -36,7 +36,7 @@ export default function ShowRoute({ children, permission = 'view_show' }) {
         <div style={{ maxWidth: 640, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18 }}>
           <h2 style={{ marginTop: 0 }}>Permission required</h2>
           <p>Your role does not allow this action.</p>
-          <Link to={`/shows/${showId}`}>Back to workspace</Link>
+          <Link to={`/shows/${showId}/jobs`}>Back to jobs</Link>
         </div>
       </AppShell>
     );

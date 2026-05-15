@@ -43,7 +43,7 @@ service cloud.firestore {
         || isShowOwner(showId)
         || (
           isShowMember(showId)
-          && get(memberPath(showId, request.auth.uid)).data.showRole == 'show_admin'
+          && get(memberPath(showId, request.auth.uid)).data.showRole in ['show_owner', 'show_admin']
         );
     }
 
@@ -51,12 +51,13 @@ service cloud.firestore {
       return isSuperAdmin() || isShowOwner(showId) || isShowMember(showId);
     }
 
-    function hasModuleAccess(showId, moduleKey) {
-      return isShowAdmin(showId)
-        || (
-          isShowMember(showId)
-          && get(memberPath(showId, request.auth.uid)).data.moduleAccess[moduleKey] == true
-        );
+    function jobMemberPath(showId, jobId, uid) {
+      return /databases/$(database)/documents/shows/$(showId)/jobs/$(jobId)/members/$(uid);
+    }
+
+    function hasJobAccess(showId, jobId) {
+      return canAccessShow(showId)
+        || (signedIn() && exists(jobMemberPath(showId, jobId, request.auth.uid)));
     }
 
     function userCreateIsSafe(uid) {
@@ -83,6 +84,11 @@ service cloud.firestore {
         allow read: if isSelf(uid) || isSuperAdmin();
         allow write: if isSuperAdmin();
       }
+
+      match /jobAccess/{accessId} {
+        allow read: if isSelf(uid) || isSuperAdmin();
+        allow write: if isSuperAdmin();
+      }
     }
 
     match /shows/{showId} {
@@ -96,33 +102,57 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      match /modules/{moduleId} {
-        allow read: if canAccessShow(showId);
-        allow write: if isShowAdmin(showId);
+      match /jobs/{jobId} {
+        allow read: if hasJobAccess(showId, jobId);
+        allow create, update, delete: if isShowAdmin(showId);
 
-        match /objects/{objectId} {
-          allow read, write: if hasModuleAccess(showId, 'ai3d');
+        match /members/{memberId} {
+          allow read: if isShowAdmin(showId) || isSelf(memberId);
+          allow write: if false;
         }
 
-        match /scene/{sceneId} {
-          allow read, write: if hasModuleAccess(showId, 'ai3d');
+        match /widgets/{widgetId} {
+          allow read: if hasJobAccess(showId, jobId);
+          allow write: if isShowAdmin(showId);
+
+          match /contacts/{contactId} {
+            allow read: if hasJobAccess(showId, jobId);
+            allow write: if isShowAdmin(showId);
+          }
+
+          match /records/{recordId} {
+            allow read: if hasJobAccess(showId, jobId);
+            allow write: if isShowAdmin(showId);
+          }
+        }
+
+        match /files/{fileId} {
+          allow read: if hasJobAccess(showId, jobId);
+          allow write: if isShowAdmin(showId);
+        }
+
+        match /updates/{updateId} {
+          allow read: if hasJobAccess(showId, jobId);
+          allow write: if isShowAdmin(showId);
+        }
+
+        match /activity/{eventId} {
+          allow read: if hasJobAccess(showId, jobId);
+          allow write: if false;
         }
       }
 
-      match /inventoryItems/{itemId} {
-        allow read, write: if hasModuleAccess(showId, 'inventory');
+      match /files/{fileId} {
+        allow read, write: if isShowAdmin(showId);
       }
 
-      match /scheduleMeta/{docId} {
-        allow read, write: if hasModuleAccess(showId, 'scheduling');
+      match /updates/{updateId} {
+        allow read, write: if isShowAdmin(showId);
       }
 
-      match /scheduleDays/{dayId} {
-        allow read, write: if hasModuleAccess(showId, 'scheduling');
-      }
-
-      match /scheduleItems/{itemId} {
-        allow read, write: if hasModuleAccess(showId, 'scheduling');
+      match /activity/{eventId} {
+        allow read: if isShowAdmin(showId);
+        allow write: if false;
       }
 
       match /{document=**} {

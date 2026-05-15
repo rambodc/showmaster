@@ -1,5 +1,5 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, canManageShow, db, FieldValue, getShow, getSystemRole, HttpsError, normalizeModuleAccess } from '../lib/firebase.js';
+import { assertAuth, canManageShow, db, FieldValue, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
 
 export const updateShowMemberAccess = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
@@ -8,7 +8,6 @@ export const updateShowMemberAccess = onCall({ region: 'us-central1' }, async (r
   const showId = String(request.data?.showId || '').trim();
   const userId = String(request.data?.userId || '').trim();
   const showRole = request.data?.showRole;
-  const moduleAccess = request.data?.moduleAccess;
 
   if (!showId || !userId) {
     throw new HttpsError('invalid-argument', 'showId and userId are required.');
@@ -44,17 +43,11 @@ export const updateShowMemberAccess = onCall({ region: 'us-central1' }, async (r
   };
 
   if (typeof showRole === 'string') {
-    if (!['show_admin', 'member'].includes(showRole)) {
+    if (!['show_admin', 'show_member'].includes(showRole)) {
       throw new HttpsError('invalid-argument', 'Invalid showRole.');
     }
     updates.showRole = showRole;
     accessUpdates.showRole = showRole;
-  }
-
-  if (moduleAccess && typeof moduleAccess === 'object') {
-    const normalizedAccess = normalizeModuleAccess(moduleAccess);
-    updates.moduleAccess = normalizedAccess;
-    accessUpdates.moduleAccess = normalizedAccess;
   }
 
   const batch = db.batch();

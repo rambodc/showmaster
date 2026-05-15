@@ -25,8 +25,8 @@ export default function AppShell({
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const showRouteMatch = pathname.match(/^\/shows\/([^/]+)/);
-  const workspacePath = showRouteMatch ? `/shows/${showRouteMatch[1]}/workspace` : '';
-  const showWorkspaceShortcut = Boolean(showBackButton && workspacePath && pathname !== workspacePath);
+  const jobsPath = showRouteMatch ? `/shows/${showRouteMatch[1]}/jobs` : '';
+  const showJobsShortcut = Boolean(showBackButton && jobsPath && pathname !== jobsPath);
 
   const items = useMemo(() => {
     if (navItems) return navItems;
@@ -112,12 +112,12 @@ export default function AppShell({
             <h1>{title}</h1>
           </div>
           <div className="app-shell-mobile-right">
-            {showWorkspaceShortcut ? (
+            {showJobsShortcut ? (
               <button
                 type="button"
                 className="app-shell-icon-btn"
-                aria-label="Go to workspace"
-                onClick={() => navigate(workspacePath)}
+                aria-label="Go to jobs"
+                onClick={() => navigate(jobsPath)}
               >
                 <FiGrid />
               </button>

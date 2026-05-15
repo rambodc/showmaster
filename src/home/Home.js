@@ -111,7 +111,7 @@ function Home() {
           ) : (
             <div className="shows-grid">
               {visibleShows.map((show) => (
-                <button key={show.id} type="button" className="show-row" onClick={() => navigate(`/shows/${show.id}/workspace`)}>
+                <button key={show.id} type="button" className="show-row" onClick={() => navigate(`/shows/${show.id}/jobs`)}>
                   <div className="show-row-main">
                     <div className="show-row-icon-wrap">
                       {getShowIconUrl(show) ? (

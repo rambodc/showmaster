@@ -2,7 +2,6 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
-import { MODULE_KEYS } from './moduleCatalog.js';
 
 initializeApp();
 
@@ -31,11 +30,7 @@ export async function assertSuperAdmin(uid) {
 }
 
 export function normalizeModuleAccess(input = {}) {
-  const out = {};
-  for (const key of MODULE_KEYS) {
-    out[key] = Boolean(input[key]);
-  }
-  return out;
+  return {};
 }
 
 export async function canManageShow(uid, showId) {
@@ -49,7 +44,7 @@ export async function canManageShow(uid, showId) {
 
   const memberSnap = await db.collection('shows').doc(showId).collection('members').doc(uid).get();
   const member = memberSnap.exists ? memberSnap.data() || {} : {};
-  return member.showRole === 'show_admin';
+  return member.showRole === 'show_owner' || member.showRole === 'show_admin';
 }
 
 export async function getShow(showId) {

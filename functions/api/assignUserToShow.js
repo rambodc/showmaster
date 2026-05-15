@@ -1,5 +1,5 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, canManageShow, db, FieldValue, getShow, getSystemRole, HttpsError, normalizeModuleAccess } from '../lib/firebase.js';
+import { assertAuth, canManageShow, db, FieldValue, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
 
 export const assignUserToShow = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
@@ -7,10 +7,9 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
 
   const showId = String(request.data?.showId || '').trim();
   const userId = String(request.data?.userId || '').trim();
-  const showRole = String(request.data?.showRole || 'member').trim();
-  const moduleAccess = normalizeModuleAccess(request.data?.moduleAccess || {});
+  const showRole = String(request.data?.showRole || 'show_member').trim();
 
-  if (!showId || !userId || !['show_admin', 'member'].includes(showRole)) {
+  if (!showId || !userId || !['show_admin', 'show_member'].includes(showRole)) {
     throw new HttpsError('invalid-argument', 'Invalid show assignment payload.');
   }
 
@@ -38,7 +37,6 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
     email: user.email ? String(user.email).toLowerCase() : null,
     displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || null,
     showRole,
-    moduleAccess,
     addedBy: callerUid,
     updatedAt: now,
     createdAt: now,
@@ -52,7 +50,6 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
     iconUrl: show.iconUrl || null,
     ownerId: show.ownerId || null,
     showRole,
-    moduleAccess,
     updatedAt: now,
     createdAt: now,
   };

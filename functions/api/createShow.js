@@ -1,6 +1,5 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, assertSuperAdmin, db, FieldValue, HttpsError, normalizeModuleAccess } from '../lib/firebase.js';
-import { MODULE_CATALOG } from '../lib/moduleCatalog.js';
+import { assertAuth, assertSuperAdmin, db, FieldValue, HttpsError } from '../lib/firebase.js';
 
 export const createShow = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
@@ -27,15 +26,13 @@ export const createShow = onCall({ region: 'us-central1' }, async (request) => {
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  const ownerModuleAccess = normalizeModuleAccess(Object.fromEntries(MODULE_CATALOG.map((mod) => [mod.key, true])));
   const now = FieldValue.serverTimestamp();
 
   await showRef.collection('members').doc(callerUid).set({
     uid: callerUid,
     email: owner.email ? String(owner.email).toLowerCase() : null,
     displayName: `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || null,
-    showRole: 'show_admin',
-    moduleAccess: ownerModuleAccess,
+    showRole: 'show_owner',
     createdAt: now,
     updatedAt: now,
   }, { merge: true });
@@ -48,25 +45,10 @@ export const createShow = onCall({ region: 'us-central1' }, async (request) => {
     iconUrls: null,
     iconUrl: null,
     ownerId: callerUid,
-    showRole: 'show_admin',
-    moduleAccess: ownerModuleAccess,
+    showRole: 'show_owner',
     createdAt: now,
     updatedAt: now,
   }, { merge: true });
-
-  const batch = db.batch();
-  MODULE_CATALOG.forEach((mod) => {
-    const modRef = showRef.collection('modules').doc(mod.key);
-    batch.set(modRef, {
-      key: mod.key,
-      label: mod.label,
-      order: mod.order,
-      version: 1,
-      enabled: Boolean(mod.defaultEnabled),
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-  });
-  await batch.commit();
 
   return { ok: true, showId: showRef.id };
 });

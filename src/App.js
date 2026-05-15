@@ -27,13 +27,9 @@ import AdminUserDetail from './admin/AdminUserDetail';
 import AdminShows from './admin/AdminShows';
 import Profile from './profile/Profile';
 import Updates from './updates/Updates';
-import ShowWorkspace from './shows/ShowWorkspace';
 import ShowMembers from './shows/ShowMembers';
-import ShowModules from './shows/ShowModules';
-import ShowInventory from './shows/ShowInventory';
-import ShowScheduling from './shows/ShowScheduling';
-import ShowArtists from './shows/ShowArtists';
-import ShowAi3DModel from './shows/ShowAi3DModel';
+import ShowJobs from './shows/ShowJobs';
+import ShowJobDetail from './shows/ShowJobDetail';
 
 // Route guard
 import ProtectedRoute from './ProtectedRoute';
@@ -74,15 +70,23 @@ function AppRoutes({ user }) {
           path="/shows/:showId"
           element={
             <ProtectedRoute>
-              <Navigate to="workspace" replace />
+              <Navigate to="jobs" replace />
             </ProtectedRoute>
           }
         />
         <Route
-          path="/shows/:showId/workspace"
+          path="/shows/:showId/jobs"
           element={
             <ProtectedRoute>
-              <ShowWorkspace />
+              <ShowJobs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/jobs/:jobId"
+          element={
+            <ProtectedRoute>
+              <ShowJobDetail />
             </ProtectedRoute>
           }
         />
@@ -91,46 +95,6 @@ function AppRoutes({ user }) {
           element={
             <ProtectedRoute>
               <ShowMembers />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/shows/:showId/modules"
-          element={
-            <ProtectedRoute>
-              <ShowModules />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/shows/:showId/scheduling/*"
-          element={
-            <ProtectedRoute>
-              <ShowScheduling />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/shows/:showId/inventory"
-          element={
-            <ProtectedRoute>
-              <ShowInventory />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/shows/:showId/artists"
-          element={
-            <ProtectedRoute>
-              <ShowArtists />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/shows/:showId/ai-3d-model"
-          element={
-            <ProtectedRoute>
-              <ShowAi3DModel />
             </ProtectedRoute>
           }
         />

@@ -137,7 +137,7 @@ export default function AdminShows() {
           <section className="show-hero-card">
             <span className="show-chip">Admin</span>
             <h2 className="show-title">Shows</h2>
-            <p className="show-subtitle">Create shows and open their workspaces.</p>
+            <p className="show-subtitle">Create shows and open their job boards.</p>
           </section>
 
           <section className="show-card">
@@ -186,7 +186,7 @@ export default function AdminShows() {
                 type="button"
                 className="member-card show-compact-row"
                 key={show.id}
-                onClick={() => navigate(`/shows/${show.id}/workspace`)}
+                onClick={() => navigate(`/shows/${show.id}/jobs`)}
               >
                 <div className="show-compact-row-icon">
                   {getShowIconUrl(show) ? (

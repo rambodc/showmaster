@@ -43,20 +43,12 @@ service firebase.storage {
         || isShowOwner(showId)
         || (
           isShowMember(showId)
-          && firestore.get(memberPath(showId, request.auth.uid)).data.showRole == 'show_admin'
+          && firestore.get(memberPath(showId, request.auth.uid)).data.showRole in ['show_owner', 'show_admin']
         );
     }
 
     function canAccessShow(showId) {
       return isSuperAdmin() || isShowOwner(showId) || isShowMember(showId);
-    }
-
-    function hasModuleAccess(showId, moduleKey) {
-      return isShowAdmin(showId)
-        || (
-          isShowMember(showId)
-          && firestore.get(memberPath(showId, request.auth.uid)).data.moduleAccess[moduleKey] == true
-        );
     }
 
     match /users/{uid}/{fileName=**} {
@@ -69,8 +61,16 @@ service firebase.storage {
       allow write: if isShowAdmin(showId);
     }
 
+    match /shows/{showId}/files/{fileName=**} {
+      allow read, write: if isShowAdmin(showId);
+    }
+
+    match /shows/{showId}/jobs/{jobId}/files/{fileName=**} {
+      allow read, write: if isShowAdmin(showId);
+    }
+
     match /shows/{showId}/ai3d-assets/{fileName=**} {
-      allow read, write: if hasModuleAccess(showId, 'ai3d');
+      allow read, write: if false;
     }
 
     match /{allPaths=**} {
