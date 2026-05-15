@@ -43,28 +43,45 @@ export default function AppShell({
   const truncate = (value, max = 34) => (value.length > max ? `${value.slice(0, max - 1)}…` : value);
   const emailLabel = email ? truncate(email, 34) : 'No email';
 
+  const renderNavItem = ({ label, to, icon: Icon, matches, variant, subitem }) => {
+    const active = isActive(pathname, matches || [to]);
+    const className = ['app-shell-nav-item'];
+    if (active) className.push('active');
+    if (variant === 'all-shows-back') className.push('app-shell-nav-item-all-shows');
+    if (subitem) className.push('app-shell-nav-subitem');
+    return (
+      <button
+        key={`${label}-${to}`}
+        type="button"
+        className={className.join(' ')}
+        onClick={() => {
+          navigate(to);
+          setMobileOpen(false);
+        }}
+        aria-current={active ? 'page' : undefined}
+      >
+        {Icon ? <Icon size={16} /> : null}
+        <span>{label}</span>
+      </button>
+    );
+  };
+
   const renderNav = () => (
     <nav className="app-shell-nav">
-      {items.map(({ label, to, icon: Icon, matches, variant }) => {
-        const active = isActive(pathname, matches || [to]);
-        const className = ['app-shell-nav-item'];
-        if (active) className.push('active');
-        if (variant === 'all-shows-back') className.push('app-shell-nav-item-all-shows');
-        return (
-          <button
-            key={label}
-            type="button"
-            className={className.join(' ')}
-            onClick={() => {
-              navigate(to);
-              setMobileOpen(false);
-            }}
-            aria-current={active ? 'page' : undefined}
-          >
-            {Icon ? <Icon size={16} /> : null}
-            <span>{label}</span>
-          </button>
-        );
+      {items.map((item, index) => {
+        if (item.type === 'group') {
+          return (
+            <React.Fragment key={`${item.label}-${index}`}>
+              <div className="sidebar-group-label">{item.label}</div>
+              {(item.children || []).map((child, childIndex) => (
+                child.type === 'folder'
+                  ? <div className="app-shell-nav-folder" key={`${child.label}-${childIndex}`}>{child.label}</div>
+                  : renderNavItem(child)
+              ))}
+            </React.Fragment>
+          );
+        }
+        return renderNavItem(item);
       })}
     </nav>
   );

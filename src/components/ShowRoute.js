@@ -23,7 +23,7 @@ export default function ShowRoute({ children, permission = 'view_show' }) {
       <AppShell title="Show Access">
         <div style={{ maxWidth: 640, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 18 }}>
           <h2 style={{ marginTop: 0 }}>No access to this show</h2>
-          <p>You are not a member of this show yet.</p>
+          <p>You are not a manager of this show yet.</p>
           <Link to="/shows">Back to shows</Link>
         </div>
       </AppShell>

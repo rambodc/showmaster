@@ -19,7 +19,7 @@ export default function AdminUserDetail() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState('');
-  const [assignForm, setAssignForm] = useState({ showId: '', showRole: 'show_member' });
+  const [assignForm, setAssignForm] = useState({ showId: '', managerRole: 'custom_manager' });
 
   useEffect(() => {
     if (!uid) return undefined;
@@ -53,9 +53,9 @@ export default function AdminUserDetail() {
     if (!uid || !assignForm.showId) return;
     setSaving(true);
     try {
-      const fn = httpsCallable(functions, 'assignUserToShow');
-      await fn({ showId: assignForm.showId, userId: uid, showRole: assignForm.showRole });
-      setAssignForm({ showId: '', showRole: 'show_member' });
+      const fn = httpsCallable(functions, 'assignManagerToShow');
+      await fn({ showId: assignForm.showId, userId: uid, managerRole: assignForm.managerRole });
+      setAssignForm({ showId: '', managerRole: 'custom_manager' });
       notify('Show assigned.', 'success');
     } catch (err) {
       notify(err?.message || 'Failed to assign show.', 'error');
@@ -64,12 +64,12 @@ export default function AdminUserDetail() {
     }
   };
 
-  const updateAccess = async (row, showRole) => {
+  const updateAccess = async (row, managerRole) => {
     const showId = row.showId || row.id;
     setBusyId(showId);
     try {
-      const fn = httpsCallable(functions, 'updateShowMemberAccess');
-      await fn({ showId, userId: uid, showRole });
+      const fn = httpsCallable(functions, 'updateShowManagerAccess');
+      await fn({ showId, userId: uid, managerRole });
       notify('Access updated.', 'success');
     } catch (err) {
       notify(err?.message || 'Failed to update access.', 'error');
@@ -84,7 +84,7 @@ export default function AdminUserDetail() {
     if (!confirmed) return;
     setBusyId(showId);
     try {
-      const fn = httpsCallable(functions, 'removeUserFromShow');
+      const fn = httpsCallable(functions, 'removeManagerFromShow');
       await fn({ showId, userId: uid });
       notify('User removed from show.', 'success');
     } catch (err) {
@@ -119,9 +119,9 @@ export default function AdminUserDetail() {
                 <option value="">Select show</option>
                 {availableShows.map((show) => <option key={show.id} value={show.id}>{show.name || show.id}</option>)}
               </select>
-              <select value={assignForm.showRole} onChange={(e) => setAssignForm((prev) => ({ ...prev, showRole: e.target.value }))}>
-                <option value="show_member">show_member</option>
-                <option value="show_admin">show_admin</option>
+              <select value={assignForm.managerRole} onChange={(e) => setAssignForm((prev) => ({ ...prev, managerRole: e.target.value }))}>
+                <option value="custom_manager">custom_manager</option>
+                <option value="full_manager">full_manager</option>
               </select>
               <button className="show-btn" type="button" onClick={assignShow} disabled={saving || !assignForm.showId}>
                 <FiPlus /> {saving ? 'Assigning...' : 'Assign Show'}
@@ -134,7 +134,8 @@ export default function AdminUserDetail() {
             {accessRows.map((row) => {
               const showId = row.showId || row.id;
               const busy = busyId === showId;
-              const isOwner = row.showRole === 'show_owner';
+              const role = row.managerRole || row.showRole || 'custom_manager';
+              const isOwner = role === 'full_manager' && row.ownerId === uid;
               return (
                 <article className="member-card" key={showId}>
                   <div>
@@ -142,13 +143,13 @@ export default function AdminUserDetail() {
                     <p className="info-note">{row.showDescription || row.status || 'active'}</p>
                   </div>
                   <div className="switch-row">
-                    <span>Show Role</span>
+                    <span>Manager Level</span>
                     {isOwner ? (
-                      <strong>show_owner</strong>
+                      <strong>full_manager</strong>
                     ) : (
-                      <select value={row.showRole || 'show_member'} disabled={busy} onChange={(e) => updateAccess(row, e.target.value)}>
-                        <option value="show_member">show_member</option>
-                        <option value="show_admin">show_admin</option>
+                      <select value={role} disabled={busy} onChange={(e) => updateAccess(row, e.target.value)}>
+                        <option value="custom_manager">custom_manager</option>
+                        <option value="full_manager">full_manager</option>
                       </select>
                     )}
                   </div>

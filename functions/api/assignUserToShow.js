@@ -1,21 +1,46 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, canManageShow, db, FieldValue, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
+import { assertAuth, canManageShow, canUseManagerFeature, db, FieldValue, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
+import { defaultFeatureAccess, defaultJobAccess } from '../lib/jobDefaults.js';
 
-export const assignUserToShow = onCall({ region: 'us-central1' }, async (request) => {
+function normalizeManagerAccess(role, featureAccess = {}, jobAccess = {}) {
+  if (role === 'full_manager') {
+    return {
+      featureAccess: defaultFeatureAccess(true),
+      jobAccess: defaultJobAccess(true),
+    };
+  }
+  return {
+    featureAccess: {
+      jobs: Boolean(featureAccess.jobs),
+      managers: Boolean(featureAccess.managers),
+      showSettings: Boolean(featureAccess.showSettings),
+    },
+    jobAccess: {
+      mode: jobAccess.mode === 'all' ? 'all' : 'selected',
+      jobIds: Array.isArray(jobAccess.jobIds) ? jobAccess.jobIds.map((id) => String(id)) : [],
+    },
+  };
+}
+
+export const assignManagerToShow = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
   const callerSystemRole = await getSystemRole(callerUid);
 
   const showId = String(request.data?.showId || '').trim();
   const userId = String(request.data?.userId || '').trim();
-  const showRole = String(request.data?.showRole || 'show_member').trim();
+  const managerRole = String(request.data?.managerRole || 'custom_manager').trim();
 
-  if (!showId || !userId || !['show_admin', 'show_member'].includes(showRole)) {
-    throw new HttpsError('invalid-argument', 'Invalid show assignment payload.');
+  if (!showId || !userId || !['full_manager', 'custom_manager'].includes(managerRole)) {
+    throw new HttpsError('invalid-argument', 'Invalid manager assignment payload.');
   }
 
   if (callerSystemRole !== 'super_admin') {
-    const allowed = await canManageShow(callerUid, showId);
+    const allowed = await canUseManagerFeature(callerUid, showId, 'managers');
     if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
+    if (managerRole === 'full_manager') {
+      const canCreateFull = await canManageShow(callerUid, showId);
+      if (!canCreateFull) throw new HttpsError('permission-denied', 'Full manager required to assign full manager access.');
+    }
   }
 
   const userSnap = await db.collection('users').doc(userId).get();
@@ -29,14 +54,16 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
   const user = userSnap.data() || {};
 
   const showRef = db.collection('shows').doc(showId);
-  const memberRef = showRef.collection('members').doc(userId);
+  const managerRef = showRef.collection('managers').doc(userId);
   const accessRef = db.collection('users').doc(userId).collection('showAccess').doc(showId);
   const now = FieldValue.serverTimestamp();
-  const memberPayload = {
+  const access = normalizeManagerAccess(managerRole, request.data?.featureAccess, request.data?.jobAccess);
+  const managerPayload = {
     uid: userId,
     email: user.email ? String(user.email).toLowerCase() : null,
     displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || null,
-    showRole,
+    managerRole,
+    ...access,
     addedBy: callerUid,
     updatedAt: now,
     createdAt: now,
@@ -49,15 +76,18 @@ export const assignUserToShow = onCall({ region: 'us-central1' }, async (request
     iconUrls: show.iconUrls || null,
     iconUrl: show.iconUrl || null,
     ownerId: show.ownerId || null,
-    showRole,
+    managerRole,
+    showRole: managerRole,
     updatedAt: now,
     createdAt: now,
   };
 
   const batch = db.batch();
-  batch.set(memberRef, memberPayload, { merge: true });
+  batch.set(managerRef, managerPayload, { merge: true });
   batch.set(accessRef, accessPayload, { merge: true });
   await batch.commit();
 
   return { ok: true };
 });
+
+export const assignUserToShow = assignManagerToShow;

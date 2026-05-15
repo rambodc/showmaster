@@ -39,10 +39,24 @@ export function defaultJobSummary() {
   };
 }
 
-export const SHOW_ROLES = ['show_owner', 'show_admin', 'show_member'];
+export const MANAGER_FEATURES = ['jobs', 'managers', 'showSettings'];
 
-export function getRoleLabel(role) {
-  if (role === 'show_owner') return 'Show Owner';
-  if (role === 'show_admin') return 'Show Admin';
-  return 'Show Member';
+export function defaultFeatureAccess(full = false) {
+  return {
+    jobs: Boolean(full),
+    managers: Boolean(full),
+    showSettings: Boolean(full),
+  };
+}
+
+export function defaultJobAccess(full = false) {
+  return {
+    mode: full ? 'all' : 'selected',
+    jobIds: [],
+  };
+}
+
+export function getManagerRoleLabel(role) {
+  if (role === 'full_manager') return 'Full Manager';
+  return 'Custom Manager';
 }

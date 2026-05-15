@@ -42,9 +42,40 @@ export async function canManageShow(uid, showId) {
   const show = showSnap.data() || {};
   if (show.ownerId === uid) return true;
 
-  const memberSnap = await db.collection('shows').doc(showId).collection('members').doc(uid).get();
-  const member = memberSnap.exists ? memberSnap.data() || {} : {};
-  return member.showRole === 'show_owner' || member.showRole === 'show_admin';
+  const managerSnap = await db.collection('shows').doc(showId).collection('managers').doc(uid).get();
+  const manager = managerSnap.exists ? managerSnap.data() || {} : {};
+  return manager.managerRole === 'full_manager';
+}
+
+export async function canUseManagerFeature(uid, showId, feature) {
+  const role = await getSystemRole(uid);
+  if (role === 'super_admin') return true;
+
+  const showSnap = await db.collection('shows').doc(showId).get();
+  if (!showSnap.exists) return false;
+  const show = showSnap.data() || {};
+  if (show.ownerId === uid) return true;
+
+  const managerSnap = await db.collection('shows').doc(showId).collection('managers').doc(uid).get();
+  const manager = managerSnap.exists ? managerSnap.data() || {} : {};
+  if (manager.managerRole === 'full_manager') return true;
+  return Boolean(manager.featureAccess?.[feature]);
+}
+
+export async function canAccessJob(uid, showId, jobId) {
+  const role = await getSystemRole(uid);
+  if (role === 'super_admin') return true;
+
+  const showSnap = await db.collection('shows').doc(showId).get();
+  if (!showSnap.exists) return false;
+  const show = showSnap.data() || {};
+  if (show.ownerId === uid) return true;
+
+  const managerSnap = await db.collection('shows').doc(showId).collection('managers').doc(uid).get();
+  const manager = managerSnap.exists ? managerSnap.data() || {} : {};
+  if (manager.managerRole === 'full_manager') return true;
+  if (manager.jobAccess?.mode === 'all') return Boolean(manager.featureAccess?.jobs);
+  return Boolean(manager.featureAccess?.jobs && Array.isArray(manager.jobAccess?.jobIds) && manager.jobAccess.jobIds.includes(jobId));
 }
 
 export async function getShow(showId) {

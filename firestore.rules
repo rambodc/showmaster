@@ -14,8 +14,8 @@ service cloud.firestore {
       return /databases/$(database)/documents/shows/$(showId);
     }
 
-    function memberPath(showId, uid) {
-      return /databases/$(database)/documents/shows/$(showId)/members/$(uid);
+    function managerPath(showId, uid) {
+      return /databases/$(database)/documents/shows/$(showId)/managers/$(uid);
     }
 
     function isSelf(uid) {
@@ -34,21 +34,41 @@ service cloud.firestore {
         && get(showPath(showId)).data.ownerId == request.auth.uid;
     }
 
-    function isShowMember(showId) {
-      return signedIn() && exists(memberPath(showId, request.auth.uid));
+    function isShowManager(showId) {
+      return signedIn() && exists(managerPath(showId, request.auth.uid));
     }
 
     function isShowAdmin(showId) {
       return isSuperAdmin()
         || isShowOwner(showId)
         || (
-          isShowMember(showId)
-          && get(memberPath(showId, request.auth.uid)).data.showRole in ['show_owner', 'show_admin']
+          isShowManager(showId)
+          && get(managerPath(showId, request.auth.uid)).data.managerRole == 'full_manager'
         );
     }
 
     function canAccessShow(showId) {
-      return isSuperAdmin() || isShowOwner(showId) || isShowMember(showId);
+      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId);
+    }
+
+    function managerHasFeature(showId, feature) {
+      return isShowAdmin(showId)
+        || (
+          isShowManager(showId)
+          && get(managerPath(showId, request.auth.uid)).data.featureAccess[feature] == true
+        );
+    }
+
+    function managerCanAccessJob(showId, jobId) {
+      return isShowAdmin(showId)
+        || (
+          isShowManager(showId)
+          && get(managerPath(showId, request.auth.uid)).data.featureAccess.jobs == true
+          && (
+            get(managerPath(showId, request.auth.uid)).data.jobAccess.mode == 'all'
+            || jobId in get(managerPath(showId, request.auth.uid)).data.jobAccess.jobIds
+          )
+        );
     }
 
     function jobMemberPath(showId, jobId, uid) {
@@ -56,7 +76,7 @@ service cloud.firestore {
     }
 
     function hasJobAccess(showId, jobId) {
-      return canAccessShow(showId)
+      return managerCanAccessJob(showId, jobId)
         || (signedIn() && exists(jobMemberPath(showId, jobId, request.auth.uid)));
     }
 
@@ -96,15 +116,17 @@ service cloud.firestore {
       allow list: if isSuperAdmin();
       allow create, update, delete: if isSuperAdmin();
 
-      match /members/{memberId} {
-        allow get: if isSelf(memberId) || isShowAdmin(showId);
-        allow list: if canAccessShow(showId);
+      match /managers/{managerId} {
+        allow get: if isSelf(managerId) || managerHasFeature(showId, 'managers');
+        allow list: if managerHasFeature(showId, 'managers');
         allow write: if false;
       }
 
       match /jobs/{jobId} {
-        allow read: if hasJobAccess(showId, jobId);
-        allow create, update, delete: if isShowAdmin(showId);
+        allow get: if managerCanAccessJob(showId, jobId) || (signedIn() && exists(jobMemberPath(showId, jobId, request.auth.uid)));
+        allow list: if managerHasFeature(showId, 'jobs') && (isShowAdmin(showId) || get(managerPath(showId, request.auth.uid)).data.jobAccess.mode == 'all');
+        allow create: if managerHasFeature(showId, 'jobs');
+        allow update, delete: if managerCanAccessJob(showId, jobId);
 
         match /members/{memberId} {
           allow read: if isShowAdmin(showId) || isSelf(memberId);
@@ -113,16 +135,16 @@ service cloud.firestore {
 
         match /widgets/{widgetId} {
           allow read: if hasJobAccess(showId, jobId);
-          allow write: if isShowAdmin(showId);
+          allow write: if managerCanAccessJob(showId, jobId);
 
           match /contacts/{contactId} {
             allow read: if hasJobAccess(showId, jobId);
-            allow write: if isShowAdmin(showId);
+            allow write: if managerCanAccessJob(showId, jobId);
           }
 
           match /records/{recordId} {
             allow read: if hasJobAccess(showId, jobId);
-            allow write: if isShowAdmin(showId);
+            allow write: if managerCanAccessJob(showId, jobId);
           }
         }
 

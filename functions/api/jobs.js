@@ -1,5 +1,5 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, canManageShow, db, FieldValue, HttpsError } from '../lib/firebase.js';
+import { assertAuth, canAccessJob, canUseManagerFeature, db, FieldValue, HttpsError } from '../lib/firebase.js';
 import { defaultCompanySummary, defaultJobSummary } from '../lib/jobDefaults.js';
 
 function cleanText(value, max = 5000) {
@@ -23,6 +23,11 @@ function cleanCompany(input = {}) {
     email: cleanEmail(input.email),
     phone: cleanText(input.phone, 80),
     website: cleanText(input.website, 240),
+    logoUrls: input.logoUrls && typeof input.logoUrls === 'object' ? {
+      sm: cleanText(input.logoUrls.sm, 1000),
+      md: cleanText(input.logoUrls.md, 1000),
+      lg: cleanText(input.logoUrls.lg, 1000),
+    } : null,
     address: cleanText(input.address, 1000),
     notes: cleanText(input.notes, 5000),
     status: cleanStatus(input.status),
@@ -46,8 +51,13 @@ function cleanContact(input = {}) {
 }
 
 async function assertCanManageJobs(uid, showId) {
-  const allowed = await canManageShow(uid, showId);
+  const allowed = await canUseManagerFeature(uid, showId, 'jobs');
   if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
+}
+
+async function assertCanManageJob(uid, showId, jobId) {
+  const allowed = await canAccessJob(uid, showId, jobId);
+  if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this job.');
 }
 
 export const createJob = onCall({ region: 'us-central1' }, async (request) => {
@@ -60,7 +70,7 @@ export const createJob = onCall({ region: 'us-central1' }, async (request) => {
     throw new HttpsError('invalid-argument', 'showId and title are required.');
   }
 
-  await assertCanManageJobs(callerUid, showId);
+  await assertCanManageJob(callerUid, showId, jobId);
 
   const now = FieldValue.serverTimestamp();
   const jobRef = db.collection('shows').doc(showId).collection('jobs').doc();
@@ -89,7 +99,7 @@ export const updateJob = onCall({ region: 'us-central1' }, async (request) => {
     throw new HttpsError('invalid-argument', 'showId and jobId are required.');
   }
 
-  await assertCanManageJobs(callerUid, showId);
+  await assertCanManageJob(callerUid, showId, jobId);
 
   const patch = {
     updatedBy: callerUid,
@@ -137,6 +147,7 @@ export const updateJobCompany = onCall({ region: 'us-central1' }, async (request
       ...defaultCompanySummary(),
       name: company.name,
       status: company.status,
+      logoUrls: company.logoUrls,
     },
     updatedBy: callerUid,
     updatedAt: now,
@@ -155,7 +166,7 @@ export const addJobCompanyContact = onCall({ region: 'us-central1' }, async (req
     throw new HttpsError('invalid-argument', 'showId and jobId are required.');
   }
 
-  await assertCanManageJobs(callerUid, showId);
+  await assertCanManageJob(callerUid, showId, jobId);
 
   const contact = cleanContact(request.data?.contact || {});
   if (!contact.displayName && !contact.email) {
@@ -195,7 +206,7 @@ export const updateJobCompanyContact = onCall({ region: 'us-central1' }, async (
     throw new HttpsError('invalid-argument', 'showId, jobId, and contactId are required.');
   }
 
-  await assertCanManageJobs(callerUid, showId);
+  await assertCanManageJob(callerUid, showId, jobId);
 
   const contact = cleanContact(request.data?.contact || {});
   if (!contact.displayName && !contact.email) {
@@ -233,7 +244,7 @@ export const removeJobCompanyContact = onCall({ region: 'us-central1' }, async (
     throw new HttpsError('invalid-argument', 'showId, jobId, and contactId are required.');
   }
 
-  await assertCanManageJobs(callerUid, showId);
+  await assertCanManageJob(callerUid, showId, jobId);
 
   await db.collection('shows').doc(showId)
     .collection('jobs').doc(jobId)

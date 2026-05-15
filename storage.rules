@@ -14,8 +14,8 @@ service firebase.storage {
       return /databases/(default)/documents/shows/$(showId);
     }
 
-    function memberPath(showId, uid) {
-      return /databases/(default)/documents/shows/$(showId)/members/$(uid);
+    function managerPath(showId, uid) {
+      return /databases/(default)/documents/shows/$(showId)/managers/$(uid);
     }
 
     function isSelf(uid) {
@@ -34,21 +34,41 @@ service firebase.storage {
         && firestore.get(showPath(showId)).data.ownerId == request.auth.uid;
     }
 
-    function isShowMember(showId) {
-      return signedIn() && firestore.exists(memberPath(showId, request.auth.uid));
+    function isShowManager(showId) {
+      return signedIn() && firestore.exists(managerPath(showId, request.auth.uid));
     }
 
     function isShowAdmin(showId) {
       return isSuperAdmin()
         || isShowOwner(showId)
         || (
-          isShowMember(showId)
-          && firestore.get(memberPath(showId, request.auth.uid)).data.showRole in ['show_owner', 'show_admin']
+          isShowManager(showId)
+          && firestore.get(managerPath(showId, request.auth.uid)).data.managerRole == 'full_manager'
         );
     }
 
     function canAccessShow(showId) {
-      return isSuperAdmin() || isShowOwner(showId) || isShowMember(showId);
+      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId);
+    }
+
+    function managerHasFeature(showId, feature) {
+      return isShowAdmin(showId)
+        || (
+          isShowManager(showId)
+          && firestore.get(managerPath(showId, request.auth.uid)).data.featureAccess[feature] == true
+        );
+    }
+
+    function managerCanAccessJob(showId, jobId) {
+      return isShowAdmin(showId)
+        || (
+          isShowManager(showId)
+          && firestore.get(managerPath(showId, request.auth.uid)).data.featureAccess.jobs == true
+          && (
+            firestore.get(managerPath(showId, request.auth.uid)).data.jobAccess.mode == 'all'
+            || jobId in firestore.get(managerPath(showId, request.auth.uid)).data.jobAccess.jobIds
+          )
+        );
     }
 
     match /users/{uid}/{fileName=**} {
@@ -58,7 +78,7 @@ service firebase.storage {
 
     match /shows/{showId}/icons/{fileName=**} {
       allow read: if canAccessShow(showId);
-      allow write: if isShowAdmin(showId);
+      allow write: if managerHasFeature(showId, 'showSettings');
     }
 
     match /shows/{showId}/files/{fileName=**} {
@@ -66,7 +86,12 @@ service firebase.storage {
     }
 
     match /shows/{showId}/jobs/{jobId}/files/{fileName=**} {
-      allow read, write: if isShowAdmin(showId);
+      allow read, write: if managerCanAccessJob(showId, jobId);
+    }
+
+    match /shows/{showId}/jobs/{jobId}/company-logo/{fileName=**} {
+      allow read: if canAccessShow(showId);
+      allow write: if managerCanAccessJob(showId, jobId);
     }
 
     match /shows/{showId}/ai3d-assets/{fileName=**} {

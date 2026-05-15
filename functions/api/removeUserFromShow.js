@@ -1,7 +1,7 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, canManageShow, db, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
+import { assertAuth, canUseManagerFeature, db, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
 
-export const removeUserFromShow = onCall({ region: 'us-central1' }, async (request) => {
+export const removeManagerFromShow = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
   const callerSystemRole = await getSystemRole(callerUid);
 
@@ -12,7 +12,7 @@ export const removeUserFromShow = onCall({ region: 'us-central1' }, async (reque
     throw new HttpsError('invalid-argument', 'showId and userId are required.');
   }
 
-  const allowed = await canManageShow(callerUid, showId);
+  const allowed = await canUseManagerFeature(callerUid, showId, 'managers');
   if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
 
   const show = await getShow(showId);
@@ -25,8 +25,10 @@ export const removeUserFromShow = onCall({ region: 'us-central1' }, async (reque
   }
 
   const batch = db.batch();
-  batch.delete(db.collection('shows').doc(showId).collection('members').doc(userId));
+  batch.delete(db.collection('shows').doc(showId).collection('managers').doc(userId));
   batch.delete(db.collection('users').doc(userId).collection('showAccess').doc(showId));
   await batch.commit();
   return { ok: true };
 });
+
+export const removeUserFromShow = removeManagerFromShow;

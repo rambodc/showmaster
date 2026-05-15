@@ -1,13 +1,14 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FiBriefcase, FiImage, FiPlus, FiSearch, FiUsers } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
+import RightDrawer from '../components/RightDrawer';
 import ShowRoute from '../components/ShowRoute';
 import { NoticeContext, UserContext } from '../App';
 import { db, functions } from '../firebase';
-import { buildShowNavItems, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessJob, useShowContext } from '../services/accessPolicy';
 import './showPages.css';
 
 function getShowIconUrl(show) {
@@ -28,11 +29,29 @@ export default function ShowJobs() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', type: 'general', priority: 'normal' });
 
   useEffect(() => {
     if (!showId) return undefined;
     setLoading(true);
+    if (!ctx.loading && ctx.jobAccess?.mode === 'selected' && !ctx.isFullManager && !ctx.isSuperAdmin) {
+      const ids = ctx.jobAccess.jobIds || [];
+      if (!ids.length) {
+        setJobs([]);
+        setLoading(false);
+        return undefined;
+      }
+      const unsubs = ids.map((id) => onSnapshot(doc(db, 'shows', showId, 'jobs', id), (snap) => {
+        setJobs((prev) => {
+          const rest = prev.filter((job) => job.id !== id);
+          return snap.exists() ? [...rest, { id: snap.id, ...snap.data() }] : rest;
+        });
+      }));
+      setLoading(false);
+      return () => unsubs.forEach((unsub) => unsub());
+    }
+
     const q = query(collection(db, 'shows', showId, 'jobs'), orderBy('updatedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       setJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -42,11 +61,11 @@ export default function ShowJobs() {
       setLoading(false);
     });
     return () => unsub();
-  }, [showId]);
+  }, [ctx.isFullManager, ctx.isSuperAdmin, ctx.jobAccess, ctx.loading, showId]);
 
-  const navItems = useMemo(() => buildShowNavItems({ showId, ctx }), [ctx, showId]);
+  const navItems = useMemo(() => buildShowNavItems({ showId, jobs, ctx }), [ctx, jobs, showId]);
   const showIconUrl = getShowIconUrl(ctx.show);
-  const canManage = Boolean(ctx.isShowAdmin);
+  const canManage = Boolean(ctx.featureAccess?.jobs);
 
   const filteredJobs = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -73,6 +92,7 @@ export default function ShowJobs() {
       const fn = httpsCallable(functions, 'createJob');
       const result = await fn({ showId, ...form });
       setForm({ title: '', description: '', type: 'general', priority: 'normal' });
+      setDrawerOpen(false);
       notify('Job created.', 'success');
       if (result.data?.jobId) navigate(`/shows/${showId}/jobs/${result.data.jobId}`);
     } catch (err) {
@@ -99,8 +119,8 @@ export default function ShowJobs() {
             </div>
             {canManage ? (
               <div className="show-actions">
-                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/members`)}>
-                  <FiUsers /> Manage Members
+                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/managers`)}>
+                  <FiUsers /> Manage Managers
                 </button>
               </div>
             ) : null}
@@ -108,21 +128,15 @@ export default function ShowJobs() {
 
           {canManage ? (
             <section className="show-card">
-              <h3 style={{ marginTop: 0 }}>Create Job</h3>
-              <form className="form-grid" onSubmit={createJob}>
-                <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Job title" required />
-                <input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} placeholder="Type" />
-                <select value={form.priority} onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value }))}>
-                  <option value="normal">normal</option>
-                  <option value="low">low</option>
-                  <option value="high">high</option>
-                  <option value="urgent">urgent</option>
-                </select>
-                <textarea rows={3} value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" />
-                <button className="show-btn" type="submit" disabled={creating || !form.title.trim()}>
-                  <FiPlus /> {creating ? 'Creating...' : 'Create Job'}
+              <div className="member-list-toolbar">
+                <div>
+                  <h3>Create Job</h3>
+                  <p className="info-note">Create and edit jobs from drawers to keep the job board clean.</p>
+                </div>
+                <button className="show-btn" type="button" onClick={() => setDrawerOpen(true)}>
+                  <FiPlus /> Create Job
                 </button>
-              </form>
+              </div>
             </section>
           ) : null}
 
@@ -140,10 +154,12 @@ export default function ShowJobs() {
             <div className="members-grid">
               {loading ? <p className="info-note">Loading jobs...</p> : null}
               {!loading && filteredJobs.length === 0 ? <p className="info-note">No jobs found.</p> : null}
-              {filteredJobs.map((job) => (
+              {filteredJobs.filter((job) => canAccessJob(ctx, job.id)).map((job) => (
                 <button key={job.id} type="button" className="member-card show-compact-row" onClick={() => navigate(`/shows/${showId}/jobs/${job.id}`)}>
                   <div className="show-compact-row-main">
-                    <div className="show-compact-row-icon"><FiBriefcase size={16} color="#0284c7" /></div>
+                    <div className="show-compact-row-icon">
+                      {job.widgetSummary?.company?.logoUrls?.sm ? <img src={job.widgetSummary.company.logoUrls.sm} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FiBriefcase size={16} color="#0284c7" />}
+                    </div>
                     <div>
                       <strong>{job.title || 'Untitled Job'}</strong>
                       <p className="info-note">{companyLabel(job)}</p>
@@ -159,6 +175,26 @@ export default function ShowJobs() {
             </div>
           </section>
         </div>
+
+        <RightDrawer open={drawerOpen} title="Create Job" eyebrow="Jobs" onClose={() => setDrawerOpen(false)}>
+          <form className="form-grid" onSubmit={createJob}>
+            <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="Job title" required />
+            <input value={form.type} onChange={(e) => setForm((prev) => ({ ...prev, type: e.target.value }))} placeholder="Type" />
+            <select value={form.priority} onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value }))}>
+              <option value="normal">normal</option>
+              <option value="low">low</option>
+              <option value="high">high</option>
+              <option value="urgent">urgent</option>
+            </select>
+            <textarea rows={3} value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" />
+            <div className="drawer-actions">
+              <button className="show-btn-outline" type="button" onClick={() => setDrawerOpen(false)}>Cancel</button>
+              <button className="show-btn" type="submit" disabled={creating || !form.title.trim()}>
+                <FiPlus /> {creating ? 'Creating...' : 'Create Job'}
+              </button>
+            </div>
+          </form>
+        </RightDrawer>
       </AppShell>
     </ShowRoute>
   );

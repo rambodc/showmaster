@@ -1,5 +1,6 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { assertAuth, assertSuperAdmin, db, FieldValue, HttpsError } from '../lib/firebase.js';
+import { defaultFeatureAccess, defaultJobAccess } from '../lib/jobDefaults.js';
 
 export const createShow = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
@@ -28,11 +29,13 @@ export const createShow = onCall({ region: 'us-central1' }, async (request) => {
 
   const now = FieldValue.serverTimestamp();
 
-  await showRef.collection('members').doc(callerUid).set({
+  await showRef.collection('managers').doc(callerUid).set({
     uid: callerUid,
     email: owner.email ? String(owner.email).toLowerCase() : null,
     displayName: `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || null,
-    showRole: 'show_owner',
+    managerRole: 'full_manager',
+    featureAccess: defaultFeatureAccess(true),
+    jobAccess: defaultJobAccess(true),
     createdAt: now,
     updatedAt: now,
   }, { merge: true });
@@ -45,7 +48,8 @@ export const createShow = onCall({ region: 'us-central1' }, async (request) => {
     iconUrls: null,
     iconUrl: null,
     ownerId: callerUid,
-    showRole: 'show_owner',
+    managerRole: 'full_manager',
+    showRole: 'full_manager',
     createdAt: now,
     updatedAt: now,
   }, { merge: true });

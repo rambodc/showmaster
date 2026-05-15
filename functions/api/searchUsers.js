@@ -1,5 +1,5 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, canManageShow, db, getSystemRole, HttpsError } from '../lib/firebase.js';
+import { assertAuth, canUseManagerFeature, db, getSystemRole, HttpsError } from '../lib/firebase.js';
 
 export const searchUsers = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
@@ -13,7 +13,7 @@ export const searchUsers = onCall({ region: 'us-central1' }, async (request) => 
   const role = await getSystemRole(callerUid);
   if (role !== 'super_admin') {
     if (!showId) throw new HttpsError('permission-denied', 'showId is required.');
-    const allowed = await canManageShow(callerUid, showId);
+    const allowed = await canUseManagerFeature(callerUid, showId, 'managers');
     if (!allowed) throw new HttpsError('permission-denied', 'Not allowed.');
   }
 

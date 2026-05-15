@@ -38,3 +38,18 @@ export function defaultJobSummary() {
     },
   };
 }
+
+export function defaultFeatureAccess(full = false) {
+  return {
+    jobs: Boolean(full),
+    managers: Boolean(full),
+    showSettings: Boolean(full),
+  };
+}
+
+export function defaultJobAccess(full = false) {
+  return {
+    mode: full ? 'all' : 'selected',
+    jobIds: [],
+  };
+}

@@ -27,7 +27,7 @@ import AdminUserDetail from './admin/AdminUserDetail';
 import AdminShows from './admin/AdminShows';
 import Profile from './profile/Profile';
 import Updates from './updates/Updates';
-import ShowMembers from './shows/ShowMembers';
+import ShowManagers from './shows/ShowManagers';
 import ShowJobs from './shows/ShowJobs';
 import ShowJobDetail from './shows/ShowJobDetail';
 
@@ -91,10 +91,10 @@ function AppRoutes({ user }) {
           }
         />
         <Route
-          path="/shows/:showId/members"
+          path="/shows/:showId/managers"
           element={
             <ProtectedRoute>
-              <ShowMembers />
+              <ShowManagers />
             </ProtectedRoute>
           }
         />
