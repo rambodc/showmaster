@@ -31,6 +31,18 @@ function canvasToBlob(canvas, type = 'image/webp', quality = 0.92) {
   });
 }
 
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.includes(',') ? result.split(',').pop() : result);
+    };
+    reader.onerror = () => reject(new Error('Failed to read processed image.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function buildSquareBlob(img, size) {
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -47,6 +59,19 @@ async function buildSquareBlob(img, size) {
   ctx.clearRect(0, 0, size, size);
   ctx.drawImage(img, sx, sy, srcSize, srcSize, 0, 0, size, size);
   return canvasToBlob(canvas);
+}
+
+export async function buildSquareImagePayloadSet({ file }) {
+  const img = await fileToImage(file);
+  const images = {};
+  for (const { key, size } of SQUARE_IMAGE_SIZES) {
+    const blob = await buildSquareBlob(img, size);
+    images[key] = {
+      contentType: 'image/webp',
+      dataBase64: await blobToBase64(blob),
+    };
+  }
+  return images;
 }
 
 export async function uploadSquareImageSet({ storage, file, basePath, prefix }) {

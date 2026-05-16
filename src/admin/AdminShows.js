@@ -5,8 +5,8 @@ import { FiEdit3, FiImage, FiPlus, FiUpload } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import RightDrawer from '../components/RightDrawer';
 import { NoticeContext } from '../App';
-import { db, functions, storage } from '../firebase';
-import { uploadSquareImageSet } from '../services/imageResize';
+import { db, functions } from '../firebase';
+import { buildSquareImagePayloadSet } from '../services/imageResize';
 import AdminGuard from './AdminGuard';
 import '../shows/showPages.css';
 
@@ -93,14 +93,9 @@ export default function AdminShows() {
       }
 
       if (targetShowId && showImageFile) {
-        const iconUrls = await uploadSquareImageSet({
-          storage,
-          file: showImageFile,
-          basePath: `shows/${targetShowId}/icons`,
-          prefix: 'icon',
-        });
-        const setShowIconsFn = httpsCallable(functions, 'setShowIcons');
-        await setShowIconsFn({ showId: targetShowId, iconUrls });
+        const images = await buildSquareImagePayloadSet({ file: showImageFile });
+        const uploadShowIconsFn = httpsCallable(functions, 'uploadShowIcons');
+        await uploadShowIconsFn({ showId: targetShowId, images });
       }
 
       notify(editingShow ? 'Show updated.' : 'Show created.', 'success');

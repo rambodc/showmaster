@@ -4,7 +4,7 @@ import { updateShowManagerAccess } from './api/updateShowManagerAccess.js';
 import { searchUsers } from './api/searchUsers.js';
 import { removeManagerFromShow } from './api/removeManagerFromShow.js';
 import { createShow } from './api/createShow.js';
-import { setShowIcons, updateShowDetails } from './api/setShowIcons.js';
+import { setShowIcons, updateShowDetails, uploadShowIcons } from './api/setShowIcons.js';
 import {
   createJob,
   updateJob,
@@ -29,6 +29,7 @@ export {
   removeManagerFromShow,
   createShow,
   setShowIcons,
+  uploadShowIcons,
   updateShowDetails,
   createJob,
   updateJob,
