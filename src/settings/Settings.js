@@ -1,9 +1,10 @@
 import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
-import { FiHash, FiLock, FiLogOut, FiMail, FiShield, FiUser } from 'react-icons/fi';
+import { httpsCallable } from 'firebase/functions';
+import { FiHash, FiLock, FiLogOut, FiMail, FiSend, FiShield, FiUser } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
-import { auth } from '../firebase';
+import { auth, functions } from '../firebase';
 import { NoticeContext, UserContext } from '../App';
 import '../shows/showPages.css';
 
@@ -12,6 +13,7 @@ export default function Settings() {
   const appUser = useContext(UserContext);
   const { notify } = useContext(NoticeContext);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -23,6 +25,20 @@ export default function Settings() {
       notify('Logout failed.', 'error');
     } finally {
       setLoggingOut(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setSendingTestEmail(true);
+    try {
+      const fn = httpsCallable(functions, 'sendTestEmail');
+      const result = await fn();
+      notify(`Test email sent to ${result.data?.to || appUser?.email || 'your account'}.`, 'success');
+    } catch (err) {
+      console.error('Test email failed:', err);
+      notify(err?.message || 'Failed to send test email.', 'error');
+    } finally {
+      setSendingTestEmail(false);
     }
   };
 
@@ -53,6 +69,9 @@ export default function Settings() {
             <span>{appUser?.systemRole || 'user'}</span>
           </div>
           <div className="show-actions">
+            <button className="show-btn" type="button" onClick={handleSendTestEmail} disabled={sendingTestEmail || !appUser?.email}>
+              <FiSend /> {sendingTestEmail ? 'Sending...' : 'Send Test Email'}
+            </button>
             <button className="show-btn-outline" type="button" onClick={() => navigate('/account/password')}>
               <FiLock /> Change Password
             </button>

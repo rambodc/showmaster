@@ -18,6 +18,7 @@ import {
 } from './api/jobs.js';
 import { inviteJobMember, removeJobMember, updateJobMemberAccess } from './api/jobMembers.js';
 import { draftJobWithAi } from './api/aiJobs.js';
+import { sendTestEmail } from './api/testEmail.js';
 
 // Deployment sentinel: keep this file in sync with exported callable functions.
 // Jobs architecture callables are exported here so CI deploys them with functions changes.
@@ -44,4 +45,5 @@ export {
   removeJobMember,
   updateJobMemberAccess,
   draftJobWithAi,
+  sendTestEmail,
 };
