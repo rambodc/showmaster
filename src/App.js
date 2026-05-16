@@ -15,6 +15,7 @@ import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/fires
 import LandingPage from './landing/LandingPage';
 import Login from './auth/Login';
 import ForgotPassword from './auth/ForgotPassword';
+import InviteRegister from './auth/InviteRegister';
 
 // Protected pages
 import Home from './home/Home';
@@ -47,6 +48,7 @@ function AppRoutes({ user }) {
         <Route path="/" element={user ? <Navigate to="/shows" /> : <LandingPage />} />
         <Route path="/signin" element={!user ? <Login /> : <Navigate to="/shows" />} />
         <Route path="/signup" element={<Navigate to="/signin" replace />} />
+        <Route path="/invite/:token" element={<InviteRegister />} />
         <Route path="/forgot" element={<ForgotPassword />} />
 
         {/* Protected */}

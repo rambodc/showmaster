@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -80,6 +80,10 @@ function requestPayloadFrom(form) {
   };
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
 export default function ShowJobDetail() {
   const { showId, jobId } = useParams();
   const appUser = useContext(UserContext);
@@ -97,7 +101,11 @@ export default function ShowJobDetail() {
   const [jobForm, setJobForm] = useState({ title: '', description: '', type: 'general', status: 'draft', priority: 'normal' });
   const [companyForm, setCompanyForm] = useState(emptyCompany);
   const [contactForm, setContactForm] = useState(emptyContact);
-  const [memberForm, setMemberForm] = useState({ email: '', displayName: '', companyName: '' });
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState([]);
+  const [selectedMemberUser, setSelectedMemberUser] = useState(null);
+  const [searchingMember, setSearchingMember] = useState(false);
+  const [canInviteNewMember, setCanInviteNewMember] = useState(false);
   const [requestForm, setRequestForm] = useState(emptyRequest);
   const [savingJob, setSavingJob] = useState(false);
   const [savingCompany, setSavingCompany] = useState(false);
@@ -112,7 +120,6 @@ export default function ShowJobDetail() {
   const [requestDrawerOpen, setRequestDrawerOpen] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
   const [editingRequest, setEditingRequest] = useState(null);
-  const [inviteLink, setInviteLink] = useState('');
   const [companyLogoFile, setCompanyLogoFile] = useState(null);
   const [companyLogoPreview, setCompanyLogoPreview] = useState('');
 
@@ -188,6 +195,38 @@ export default function ShowJobDetail() {
     });
     return () => unsub();
   }, [canManage, jobId, showId]);
+
+  const searchMemberUsers = useCallback(async (term) => {
+    const clean = term.trim();
+    if (clean.length < 2) {
+      setMemberSearchResults([]);
+      setCanInviteNewMember(false);
+      return;
+    }
+    setSearchingMember(true);
+    try {
+      const fn = httpsCallable(functions, 'searchUsers');
+      const result = await fn({ query: clean, limit: 8, showId });
+      const existingIds = new Set(members.map((member) => member.id));
+      setMemberSearchResults((result.data?.users || []).filter((user) => !existingIds.has(user.uid)));
+      setCanInviteNewMember(Boolean(result.data?.canInviteNew));
+    } catch (err) {
+      notify(err?.message || 'Failed to search users.', 'error');
+    } finally {
+      setSearchingMember(false);
+    }
+  }, [members, notify, showId]);
+
+  useEffect(() => {
+    const term = memberEmail.trim();
+    if (term.length < 2) {
+      setMemberSearchResults([]);
+      setCanInviteNewMember(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => searchMemberUsers(term), 220);
+    return () => window.clearTimeout(timer);
+  }, [memberEmail, searchMemberUsers]);
 
   useEffect(() => {
     if (!showId || !jobId) return undefined;
@@ -296,15 +335,21 @@ export default function ShowJobDetail() {
 
   const inviteMember = async (event) => {
     event.preventDefault();
-    if (!memberForm.email.trim()) return;
+    const email = selectedMemberUser?.email || memberEmail.trim();
+    if (!isValidEmail(email)) return;
     setSavingMember(true);
-    setInviteLink('');
     try {
-      const fn = httpsCallable(functions, 'inviteJobMember');
-      const result = await fn({ showId, jobId, ...memberForm });
-      setInviteLink(result.data?.passwordResetLink || '');
-      setMemberForm({ email: '', displayName: '', companyName: '' });
-      notify('Member invited. Share the setup link with them.', 'success');
+      const fn = httpsCallable(functions, 'inviteUser');
+      const result = await fn({
+        email,
+        target: { type: 'job_member', showId, jobId },
+      });
+      setMemberEmail('');
+      setSelectedMemberUser(null);
+      setMemberSearchResults([]);
+      setCanInviteNewMember(false);
+      notify(result.data?.mode === 'existing' ? 'Access granted and notification sent.' : 'Invitation email sent.', 'success');
+      setMemberDrawerOpen(false);
     } catch (err) {
       notify(err?.message || 'Failed to invite member.', 'error');
     } finally {
@@ -456,7 +501,7 @@ export default function ShowJobDetail() {
                   <h3>Job Members</h3>
                   <p className="info-note">Invite company reps to respond to this job only.</p>
                 </div>
-                <button className="show-btn" type="button" onClick={() => { setInviteLink(''); setMemberDrawerOpen(true); }}><FiUserPlus /> Invite Member</button>
+                <button className="show-btn" type="button" onClick={() => { setMemberEmail(''); setSelectedMemberUser(null); setMemberSearchResults([]); setCanInviteNewMember(false); setMemberDrawerOpen(true); }}><FiUserPlus /> Invite Member</button>
               </div>
               <div className="members-grid" style={{ marginTop: 16 }}>
                 {members.length === 0 ? <p className="info-note">No job members invited yet.</p> : null}
@@ -593,16 +638,21 @@ export default function ShowJobDetail() {
 
         <RightDrawer open={memberDrawerOpen} title="Invite Member" eyebrow="Job Members" onClose={() => setMemberDrawerOpen(false)}>
           <form className="form-grid" onSubmit={inviteMember}>
-            <input type="email" value={memberForm.email} onChange={(e) => setMemberForm((prev) => ({ ...prev, email: e.target.value }))} placeholder="Email" required />
-            <input value={memberForm.displayName} onChange={(e) => setMemberForm((prev) => ({ ...prev, displayName: e.target.value }))} placeholder="Display name" />
-            <input value={memberForm.companyName} onChange={(e) => setMemberForm((prev) => ({ ...prev, companyName: e.target.value }))} placeholder="Company name" />
-            {inviteLink ? (
-              <label className="member-form-label">
-                <span>Setup link</span>
-                <textarea rows={4} value={inviteLink} readOnly />
-              </label>
+            <input type="email" value={memberEmail} onChange={(e) => { setMemberEmail(e.target.value); setSelectedMemberUser(null); }} placeholder="Email" required />
+            {searchingMember ? <p className="info-note">Searching...</p> : null}
+            {memberSearchResults.length ? (
+              <div className="member-search-results">
+                {memberSearchResults.map((user) => (
+                  <button key={user.uid} className="member-search-result" type="button" onClick={() => { setSelectedMemberUser(user); setMemberEmail(user.email || ''); setMemberSearchResults([]); }}>
+                    <span className="member-avatar">{String(user.firstName || user.email || '?').charAt(0).toUpperCase()}</span>
+                    <span><strong>{`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}</strong><small>{user.email}</small></span>
+                  </button>
+                ))}
+              </div>
             ) : null}
-            <div className="drawer-actions"><button className="show-btn-outline" type="button" onClick={() => setMemberDrawerOpen(false)}>Close</button><button className="show-btn" type="submit" disabled={savingMember || !memberForm.email.trim()}><FiMail /> {savingMember ? 'Inviting...' : 'Generate Invite'}</button></div>
+            {selectedMemberUser ? <p className="info-note">Selected: {selectedMemberUser.email}</p> : null}
+            {!selectedMemberUser && canInviteNewMember ? <p className="info-note">Invite new user: {memberEmail.trim()}</p> : null}
+            <div className="drawer-actions"><button className="show-btn-outline" type="button" onClick={() => setMemberDrawerOpen(false)}>Close</button><button className="show-btn" type="submit" disabled={savingMember || !isValidEmail(selectedMemberUser?.email || memberEmail)}><FiMail /> {savingMember ? 'Inviting...' : 'Invite Member'}</button></div>
           </form>
         </RightDrawer>
 

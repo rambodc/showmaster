@@ -42,10 +42,10 @@ export default function AdminUsers() {
           <section className="show-hero-card">
             <span className="show-chip">Admin</span>
             <h2 className="show-title">Users</h2>
-            <p className="show-subtitle">Create users and manage the shows assigned to them.</p>
+            <p className="show-subtitle">Invite users and manage the shows assigned to them.</p>
             <div className="show-actions">
               <button className="show-btn" type="button" onClick={() => navigate('/admin/users/new')}>
-                <FiUserPlus /> Create User
+                <FiUserPlus /> Invite User
               </button>
             </div>
           </section>

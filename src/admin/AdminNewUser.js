@@ -1,32 +1,78 @@
-import React, { useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { httpsCallable } from 'firebase/functions';
-import { FiArrowLeft, FiUserPlus } from 'react-icons/fi';
+import { FiArrowLeft, FiMail } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import { NoticeContext } from '../App';
 import { functions } from '../firebase';
 import AdminGuard from './AdminGuard';
 import '../shows/showPages.css';
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
 export default function AdminNewUser() {
   const navigate = useNavigate();
   const { notify } = useContext(NoticeContext);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', tempPassword: '' });
+  const [email, setEmail] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [canInviteNew, setCanInviteNew] = useState(false);
 
-  const onChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  const searchUsers = useCallback(async (term) => {
+    const clean = term.trim();
+    if (clean.length < 2) {
+      setSearchResults([]);
+      setCanInviteNew(false);
+      return;
+    }
+    setSearching(true);
+    try {
+      const fn = httpsCallable(functions, 'searchUsers');
+      const result = await fn({ query: clean, limit: 8 });
+      setSearchResults(result.data?.users || []);
+      setCanInviteNew(Boolean(result.data?.canInviteNew));
+    } catch (err) {
+      notify(err?.message || 'Failed to search users.', 'error');
+    } finally {
+      setSearching(false);
+    }
+  }, [notify]);
 
-  const createUser = async (event) => {
+  useEffect(() => {
+    const term = email.trim();
+    if (term.length < 2) {
+      setSearchResults([]);
+      setCanInviteNew(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => searchUsers(term), 220);
+    return () => window.clearTimeout(timer);
+  }, [email, searchUsers]);
+
+  const inviteUser = async (event) => {
     event.preventDefault();
+    const inviteEmail = selectedUser?.email || email.trim();
+    if (!isValidEmail(inviteEmail)) return;
     setSaving(true);
     try {
-      const fn = httpsCallable(functions, 'createInternalUser');
-      const result = await fn(form);
-      const uid = result.data?.uid;
-      notify(`User created: ${result.data?.email || form.email}`, 'success');
-      if (uid) navigate(`/admin/users/${uid}`);
+      const fn = httpsCallable(functions, 'inviteUser');
+      const result = await fn({ email: inviteEmail, target: { type: 'internal' } });
+      if (result.data?.mode === 'existing') {
+        notify('Access granted and notification sent.', 'success');
+        if (result.data?.uid) navigate(`/admin/users/${result.data.uid}`);
+        return;
+      }
+      notify('Invitation email sent.', 'success');
+      setEmail('');
+      setSelectedUser(null);
+      setSearchResults([]);
+      setCanInviteNew(false);
     } catch (err) {
-      notify(err?.message || 'Failed to create user.', 'error');
+      notify(err?.message || 'Failed to invite user.', 'error');
     } finally {
       setSaving(false);
     }
@@ -34,7 +80,7 @@ export default function AdminNewUser() {
 
   return (
     <AdminGuard>
-      <AppShell title="Create User">
+      <AppShell title="Invite User">
         <div className="show-page-stack" style={{ maxWidth: 760, margin: '0 auto' }}>
           <div className="show-page-top-nav">
             <button className="show-btn-outline" type="button" onClick={() => navigate('/admin/users')}>
@@ -44,18 +90,28 @@ export default function AdminNewUser() {
 
           <section className="show-hero-card">
             <span className="show-chip">Admin</span>
-            <h2 className="show-title">Create User</h2>
-            <p className="show-subtitle">Create an internal user, then assign shows from the user detail page.</p>
+            <h2 className="show-title">Invite User</h2>
+            <p className="show-subtitle">Invite a user to finish registration, then assign shows from the user detail page.</p>
           </section>
 
           <section className="show-card">
-            <form className="form-grid" onSubmit={createUser}>
-              <input value={form.firstName} onChange={(e) => onChange('firstName', e.target.value)} placeholder="First name" required />
-              <input value={form.lastName} onChange={(e) => onChange('lastName', e.target.value)} placeholder="Last name" required />
-              <input value={form.email} type="email" onChange={(e) => onChange('email', e.target.value)} placeholder="Email" required />
-              <input value={form.tempPassword} type="password" minLength={6} onChange={(e) => onChange('tempPassword', e.target.value)} placeholder="Temporary password" required />
-              <button className="show-btn" type="submit" disabled={saving}>
-                <FiUserPlus /> {saving ? 'Creating...' : 'Create User'}
+            <form className="form-grid" onSubmit={inviteUser}>
+              <input value={email} type="email" onChange={(e) => { setEmail(e.target.value); setSelectedUser(null); }} placeholder="Email" required />
+              {searching ? <p className="info-note">Searching...</p> : null}
+              {searchResults.length ? (
+                <div className="member-search-results">
+                  {searchResults.map((user) => (
+                    <button key={user.uid} className="member-search-result" type="button" onClick={() => { setSelectedUser(user); setEmail(user.email || ''); setSearchResults([]); }}>
+                      <span className="member-avatar">{String(user.firstName || user.email || '?').charAt(0).toUpperCase()}</span>
+                      <span><strong>{`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email}</strong><small>{user.email}</small></span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {selectedUser ? <p className="info-note">Selected: {selectedUser.email}</p> : null}
+              {!selectedUser && canInviteNew ? <p className="info-note">Invite new user: {email.trim()}</p> : null}
+              <button className="show-btn" type="submit" disabled={saving || !isValidEmail(selectedUser?.email || email)}>
+                <FiMail /> {saving ? 'Inviting...' : 'Invite User'}
               </button>
             </form>
           </section>

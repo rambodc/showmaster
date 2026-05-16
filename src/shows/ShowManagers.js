@@ -28,6 +28,10 @@ function buildEmptyForm() {
   };
 }
 
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
 export default function ShowManagers() {
   const { showId } = useParams();
   const navigate = useNavigate();
@@ -40,6 +44,7 @@ export default function ShowManagers() {
   const [filter, setFilter] = useState('');
   const [queryText, setQueryText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [canInviteNew, setCanInviteNew] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -99,6 +104,7 @@ export default function ShowManagers() {
       const result = await fn({ query: clean, limit: 12, showId });
       const existingIds = new Set(managers.map((manager) => manager.id));
       setSearchResults((result.data?.users || []).filter((user) => !existingIds.has(user.uid)));
+      setCanInviteNew(Boolean(result.data?.canInviteNew));
     } catch (err) {
       notify(err?.message || 'Failed to search users.', 'error');
     } finally {
@@ -110,6 +116,7 @@ export default function ShowManagers() {
     const term = queryText.trim();
     if (term.length < 2) {
       setSearchResults([]);
+      setCanInviteNew(false);
       return undefined;
     }
     const timer = window.setTimeout(() => searchUsers(term), 220);
@@ -122,6 +129,7 @@ export default function ShowManagers() {
     setSelectedUser(null);
     setQueryText('');
     setSearchResults([]);
+    setCanInviteNew(false);
     setForm(buildEmptyForm());
   };
 
@@ -156,7 +164,8 @@ export default function ShowManagers() {
   });
 
   const saveManager = async () => {
-    if (drawerMode === 'add' && !selectedUser?.uid) return;
+    const inviteEmail = selectedUser?.email || queryText.trim();
+    if (drawerMode === 'add' && !isValidEmail(inviteEmail)) return;
     setSaving(true);
     try {
       const payload = {
@@ -166,9 +175,12 @@ export default function ShowManagers() {
         jobAccess: form.jobAccess,
       };
       if (drawerMode === 'add') {
-        const fn = httpsCallable(functions, 'assignManagerToShow');
-        await fn({ ...payload, userId: selectedUser.uid });
-        notify('Manager assigned.', 'success');
+        const fn = httpsCallable(functions, 'inviteUser');
+        const result = await fn({
+          email: inviteEmail,
+          target: { type: 'manager', ...payload },
+        });
+        notify(result.data?.mode === 'existing' ? 'Access granted and notification sent.' : 'Invitation email sent.', 'success');
       } else {
         const fn = httpsCallable(functions, 'updateShowManagerAccess');
         await fn({ ...payload, userId: editingManager.id });
@@ -284,6 +296,7 @@ export default function ShowManagers() {
                 </div>
               ) : null}
               {selectedUser ? <p className="info-note">Selected: {selectedUser.email || selectedUser.uid}</p> : null}
+              {!selectedUser && canInviteNew ? <p className="info-note">Invite new user: {queryText.trim()}</p> : null}
             </div>
           ) : null}
 
@@ -318,8 +331,8 @@ export default function ShowManagers() {
 
             <div className="drawer-actions">
               <button className="show-btn-outline" type="button" onClick={closeDrawer}>Cancel</button>
-              <button className="show-btn" type="button" onClick={saveManager} disabled={saving || (drawerMode === 'add' && !selectedUser?.uid)}>
-                <FiPlus /> {saving ? 'Saving...' : 'Save Manager'}
+              <button className="show-btn" type="button" onClick={saveManager} disabled={saving || (drawerMode === 'add' && !isValidEmail(selectedUser?.email || queryText))}>
+                <FiPlus /> {saving ? 'Saving...' : (drawerMode === 'add' ? 'Add Manager' : 'Save Manager')}
               </button>
             </div>
           </div>

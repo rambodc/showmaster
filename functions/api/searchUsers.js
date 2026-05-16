@@ -17,8 +17,11 @@ export const searchUsers = onCall({ region: 'us-central1' }, async (request) => 
     if (!allowed) throw new HttpsError('permission-denied', 'Not allowed.');
   }
 
+  const exactSnap = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(queryText)
+    ? await db.collection('users').where('email', '==', queryText).limit(1).get()
+    : null;
   const snap = await db.collection('users').limit(100).get();
-  const users = snap.docs
+  let users = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
     .filter((u) => {
       const name = `${u.firstName || ''} ${u.lastName || ''}`.trim().toLowerCase();
@@ -34,5 +37,23 @@ export const searchUsers = onCall({ region: 'us-central1' }, async (request) => 
       systemRole: u.systemRole || 'user',
     }));
 
-  return { users };
+  const exactEmailDoc = exactSnap && !exactSnap.empty ? exactSnap.docs[0] : null;
+  const exactEmail = exactEmailDoc
+    ? {
+      uid: exactEmailDoc.id,
+      email: exactEmailDoc.data()?.email || '',
+      firstName: exactEmailDoc.data()?.firstName || '',
+      lastName: exactEmailDoc.data()?.lastName || '',
+      systemRole: exactEmailDoc.data()?.systemRole || 'user',
+    }
+    : (users.find((u) => String(u.email || '').toLowerCase() === queryText) || null);
+  if (exactEmail && !users.some((u) => u.uid === exactEmail.uid)) {
+    users = [exactEmail, ...users].slice(0, limit);
+  }
+
+  return {
+    users,
+    exactEmailMatch: exactEmail,
+    canInviteNew: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(queryText) && !exactEmail,
+  };
 });
