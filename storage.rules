@@ -18,6 +18,10 @@ service firebase.storage {
       return /databases/(default)/documents/shows/$(showId)/managers/$(uid);
     }
 
+    function userShowAccessPath(showId, uid) {
+      return /databases/(default)/documents/users/$(uid)/showAccess/$(showId);
+    }
+
     function isSelf(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -38,6 +42,10 @@ service firebase.storage {
       return signedIn() && firestore.exists(managerPath(showId, request.auth.uid));
     }
 
+    function isShowMember(showId) {
+      return signedIn() && firestore.exists(userShowAccessPath(showId, request.auth.uid));
+    }
+
     function isShowAdmin(showId) {
       return isSuperAdmin()
         || isShowOwner(showId)
@@ -48,7 +56,7 @@ service firebase.storage {
     }
 
     function canAccessShow(showId) {
-      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId);
+      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId) || isShowMember(showId);
     }
 
     function managerHasFeature(showId, feature) {

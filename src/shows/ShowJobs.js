@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FiBriefcase, FiImage, FiPlus, FiSearch, FiUsers } from 'react-icons/fi';
+import { FiBriefcase, FiCpu, FiImage, FiPlus, FiSearch, FiUsers } from 'react-icons/fi';
 import AppShell from '../components/AppShell';
 import RightDrawer from '../components/RightDrawer';
 import ShowRoute from '../components/ShowRoute';
@@ -30,6 +30,11 @@ export default function ShowJobs() {
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiDraft, setAiDraft] = useState(null);
+  const [aiRequestsText, setAiRequestsText] = useState('');
   const [form, setForm] = useState({ title: '', description: '', type: 'general', priority: 'normal' });
 
   useEffect(() => {
@@ -102,6 +107,68 @@ export default function ShowJobs() {
     }
   };
 
+  const draftJob = async (event) => {
+    event.preventDefault();
+    if (!aiPrompt.trim()) return;
+    setDrafting(true);
+    try {
+      const fn = httpsCallable(functions, 'draftJobWithAi');
+      const result = await fn({
+        showId,
+        prompt: aiPrompt,
+        showContext: `${ctx.show?.name || ''} ${ctx.show?.description || ''}`.trim(),
+      });
+      const draft = result.data?.draft || null;
+      setAiDraft(draft);
+      setAiRequestsText((draft?.requests || []).map((item) => `${item.title} | ${item.instructions}`).join('\n'));
+      notify('AI draft ready for review.', 'success');
+    } catch (err) {
+      notify(err?.message || 'Failed to draft job with AI.', 'error');
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const createDraftJob = async () => {
+    if (!aiDraft?.title?.trim()) return;
+    setCreating(true);
+    try {
+      const requests = aiRequestsText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [title, ...rest] = line.split('|');
+          return {
+            title: title.trim(),
+            instructions: rest.join('|').trim(),
+            status: 'open',
+            fields: [],
+          };
+        });
+      const fn = httpsCallable(functions, 'createJob');
+      const result = await fn({
+        showId,
+        title: aiDraft.title,
+        description: aiDraft.description,
+        type: aiDraft.type,
+        priority: aiDraft.priority,
+        company: aiDraft.company,
+        requests,
+      });
+      setAiDrawerOpen(false);
+      setAiPrompt('');
+      setAiDraft(null);
+      setAiRequestsText('');
+      notify('AI draft job created.', 'success');
+      if (result.data?.jobId) navigate(`/shows/${showId}/jobs/${result.data.jobId}`);
+    } catch (err) {
+      notify(err?.message || 'Failed to create AI draft job.', 'error');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <ShowRoute permission="view_show">
       <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showBackButton>
@@ -117,7 +184,7 @@ export default function ShowJobs() {
                 <p className="show-subtitle">Build the show from job-based work packages. Company is the first active widget.</p>
               </div>
             </div>
-            {canManage ? (
+            {ctx.featureAccess?.managers ? (
               <div className="show-actions">
                 <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/managers`)}>
                   <FiUsers /> Manage Managers
@@ -135,6 +202,9 @@ export default function ShowJobs() {
                 </div>
                 <button className="show-btn" type="button" onClick={() => setDrawerOpen(true)}>
                   <FiPlus /> Create Job
+                </button>
+                <button className="show-btn-outline" type="button" onClick={() => setAiDrawerOpen(true)}>
+                  <FiCpu /> AI Draft
                 </button>
               </div>
             </section>
@@ -194,6 +264,38 @@ export default function ShowJobs() {
               </button>
             </div>
           </form>
+        </RightDrawer>
+
+        <RightDrawer open={aiDrawerOpen} title="AI Draft Job" eyebrow="Jobs" onClose={() => setAiDrawerOpen(false)}>
+          <form className="form-grid" onSubmit={draftJob}>
+            <textarea rows={5} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="Describe the job, company, and what the company rep needs to respond to." required />
+            <button className="show-btn" type="submit" disabled={drafting || !aiPrompt.trim()}>
+              <FiCpu /> {drafting ? 'Drafting...' : 'Draft Job'}
+            </button>
+          </form>
+
+          {aiDraft ? (
+            <div className="form-grid" style={{ marginTop: 16 }}>
+              <input value={aiDraft.title || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, title: e.target.value }))} placeholder="Job title" />
+              <input value={aiDraft.type || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, type: e.target.value }))} placeholder="Type" />
+              <select value={aiDraft.priority || 'normal'} onChange={(e) => setAiDraft((prev) => ({ ...prev, priority: e.target.value }))}>
+                <option value="normal">normal</option>
+                <option value="low">low</option>
+                <option value="high">high</option>
+                <option value="urgent">urgent</option>
+              </select>
+              <textarea rows={3} value={aiDraft.description || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" />
+              <input value={aiDraft.company?.name || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, company: { ...(prev.company || {}), name: e.target.value } }))} placeholder="Company name" />
+              <input value={aiDraft.company?.email || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, company: { ...(prev.company || {}), email: e.target.value } }))} placeholder="Company email" />
+              <textarea rows={5} value={aiRequestsText} onChange={(e) => setAiRequestsText(e.target.value)} placeholder="Requests, one per line: Title | Instructions" />
+              <div className="drawer-actions">
+                <button className="show-btn-outline" type="button" onClick={() => setAiDraft(null)}>Clear Draft</button>
+                <button className="show-btn" type="button" onClick={createDraftJob} disabled={creating || !aiDraft.title?.trim()}>
+                  <FiPlus /> {creating ? 'Creating...' : 'Create Draft Job'}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </RightDrawer>
       </AppShell>
     </ShowRoute>

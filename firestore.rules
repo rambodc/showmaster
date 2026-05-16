@@ -18,6 +18,10 @@ service cloud.firestore {
       return /databases/$(database)/documents/shows/$(showId)/managers/$(uid);
     }
 
+    function userShowAccessPath(showId, uid) {
+      return /databases/$(database)/documents/users/$(uid)/showAccess/$(showId);
+    }
+
     function isSelf(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -38,6 +42,10 @@ service cloud.firestore {
       return signedIn() && exists(managerPath(showId, request.auth.uid));
     }
 
+    function isShowMember(showId) {
+      return signedIn() && exists(userShowAccessPath(showId, request.auth.uid));
+    }
+
     function isShowAdmin(showId) {
       return isSuperAdmin()
         || isShowOwner(showId)
@@ -48,7 +56,7 @@ service cloud.firestore {
     }
 
     function canAccessShow(showId) {
-      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId);
+      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId) || isShowMember(showId);
     }
 
     function managerHasFeature(showId, feature) {
@@ -129,7 +137,7 @@ service cloud.firestore {
         allow update, delete: if managerCanAccessJob(showId, jobId);
 
         match /members/{memberId} {
-          allow read: if isShowAdmin(showId) || isSelf(memberId);
+          allow read: if managerCanAccessJob(showId, jobId) || isSelf(memberId);
           allow write: if false;
         }
 
@@ -145,6 +153,40 @@ service cloud.firestore {
           match /records/{recordId} {
             allow read: if hasJobAccess(showId, jobId);
             allow write: if managerCanAccessJob(showId, jobId);
+
+            match /responses/{responseId} {
+              allow read: if managerCanAccessJob(showId, jobId) || isSelf(responseId);
+              allow create: if widgetId == 'requests'
+                && isSelf(responseId)
+                && signedIn()
+                && exists(jobMemberPath(showId, jobId, request.auth.uid))
+                && request.resource.data.uid == request.auth.uid
+                && request.resource.data.keys().hasOnly([
+                  'uid',
+                  'email',
+                  'displayName',
+                  'companyName',
+                  'message',
+                  'fieldValues',
+                  'status',
+                  'updatedBy',
+                  'updatedAt',
+                  'createdBy',
+                  'createdAt'
+                ]);
+              allow update: if widgetId == 'requests'
+                && isSelf(responseId)
+                && signedIn()
+                && exists(jobMemberPath(showId, jobId, request.auth.uid))
+                && request.resource.data.uid == request.auth.uid
+                && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                  'uid',
+                  'email',
+                  'createdBy',
+                  'createdAt'
+                ]);
+              allow delete: if false;
+            }
           }
         }
 

@@ -1,4 +1,4 @@
-import { doc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
 import { FiArrowLeft, FiBriefcase, FiGrid, FiSettings, FiUsers } from 'react-icons/fi';
 import { db } from '../firebase';
@@ -21,20 +21,27 @@ export function normalizeModuleAccess(input = {}) {
 export function useShowContext({ showId, appUser }) {
   const [show, setShow] = useState(null);
   const [manager, setManager] = useState(null);
+  const [showAccess, setShowAccess] = useState(null);
+  const [jobMemberAccess, setJobMemberAccess] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!showId || !appUser?.id) {
       setShow(null);
       setManager(null);
+      setShowAccess(null);
+      setJobMemberAccess([]);
       setLoading(false);
       return undefined;
     }
 
+    setLoading(true);
     let showLoaded = false;
     let managerLoaded = false;
+    let showAccessLoaded = false;
+    let jobAccessLoaded = false;
     const maybeDone = () => {
-      if (showLoaded && managerLoaded) setLoading(false);
+      if (showLoaded && managerLoaded && showAccessLoaded && jobAccessLoaded) setLoading(false);
     };
 
     const unsubShow = onSnapshot(
@@ -65,16 +72,48 @@ export function useShowContext({ showId, appUser }) {
       }
     );
 
+    const unsubShowAccess = onSnapshot(
+      doc(db, 'users', appUser.id, 'showAccess', showId),
+      (snap) => {
+        setShowAccess(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+        showAccessLoaded = true;
+        maybeDone();
+      },
+      () => {
+        setShowAccess(null);
+        showAccessLoaded = true;
+        maybeDone();
+      }
+    );
+
+    const unsubJobAccess = onSnapshot(
+      query(collection(db, 'users', appUser.id, 'jobAccess'), where('showId', '==', showId)),
+      (snap) => {
+        setJobMemberAccess(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        jobAccessLoaded = true;
+        maybeDone();
+      },
+      () => {
+        setJobMemberAccess([]);
+        jobAccessLoaded = true;
+        maybeDone();
+      }
+    );
+
     return () => {
       unsubShow();
       unsubManager();
+      unsubShowAccess();
+      unsubJobAccess();
     };
   }, [showId, appUser?.id]);
 
   return useMemo(() => {
     const isSuperAdmin = appUser?.systemRole === 'super_admin';
     const managerRole = manager?.managerRole || null;
-    const hasShowAccess = Boolean(isSuperAdmin || managerRole || show?.ownerId === appUser?.id);
+    const memberJobIds = jobMemberAccess.map((row) => row.jobId).filter(Boolean);
+    const hasMemberAccess = Boolean(showAccess?.jobMember || memberJobIds.length);
+    const hasShowAccess = Boolean(isSuperAdmin || managerRole || hasMemberAccess || show?.ownerId === appUser?.id);
     const isShowOwner = Boolean(show?.ownerId === appUser?.id);
     const isFullManager = Boolean(isSuperAdmin || isShowOwner || managerRole === 'full_manager');
     const featureAccess = isFullManager
@@ -88,15 +127,21 @@ export function useShowContext({ showId, appUser }) {
       ? { mode: 'all', jobIds: [] }
       : {
         mode: manager?.jobAccess?.mode === 'all' ? 'all' : 'selected',
-        jobIds: Array.isArray(manager?.jobAccess?.jobIds) ? manager.jobAccess.jobIds : [],
+        jobIds: [
+          ...(Array.isArray(manager?.jobAccess?.jobIds) ? manager.jobAccess.jobIds : []),
+          ...memberJobIds,
+        ].filter((id, index, all) => id && all.indexOf(id) === index),
       };
 
     return {
       loading,
       show,
       manager,
+      showAccess,
+      jobMemberAccess,
       isSuperAdmin,
       isShowOwner,
+      hasMemberAccess,
       managerRole,
       hasShowAccess,
       isShowAdmin: isFullManager,
@@ -104,7 +149,7 @@ export function useShowContext({ showId, appUser }) {
       featureAccess,
       jobAccess,
     };
-  }, [appUser?.id, appUser?.systemRole, loading, manager, show]);
+  }, [appUser?.id, appUser?.systemRole, jobMemberAccess, loading, manager, show, showAccess]);
 }
 
 export function canAccessModule({ moduleKey, moduleEnabled, ctx }) {
@@ -190,7 +235,7 @@ export function hasShowPermission(ctx, permission) {
   if (ctx?.isSuperAdmin) return true;
   if (!ctx?.hasShowAccess) return false;
 
-  if (permission === 'view_show') return Boolean(ctx?.featureAccess?.jobs || ctx?.jobAccess?.jobIds?.length || ctx?.isFullManager);
+  if (permission === 'view_show') return Boolean(ctx?.featureAccess?.jobs || ctx?.jobAccess?.jobIds?.length || ctx?.isFullManager || ctx?.hasMemberAccess);
   if (permission === 'manage_managers') return Boolean(ctx?.featureAccess?.managers);
   if (permission === 'manage_jobs') return Boolean(ctx?.featureAccess?.jobs);
   if (permission === 'show_settings') return Boolean(ctx?.featureAccess?.showSettings);

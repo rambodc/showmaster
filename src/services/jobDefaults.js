@@ -2,6 +2,7 @@ export const RESERVED_WIDGET_KEYS = [
   'schedule',
   'files',
   'updates',
+  'requests',
   'quote',
   'approval',
   'delivery',
@@ -35,6 +36,10 @@ export function defaultJobSummary() {
     widgetConfig: defaultWidgetConfig(),
     widgetSummary: {
       company: defaultCompanySummary(),
+      requests: {
+        openCount: 0,
+        responseCount: 0,
+      },
     },
   };
 }

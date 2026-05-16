@@ -1,5 +1,5 @@
 import { onCall } from 'firebase-functions/v2/https';
-import { assertAuth, canUseManagerFeature, db, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
+import { assertAuth, canUseManagerFeature, db, FieldValue, getShow, getSystemRole, HttpsError } from '../lib/firebase.js';
 
 export const removeManagerFromShow = onCall({ region: 'us-central1' }, async (request) => {
   const callerUid = assertAuth(request);
@@ -24,9 +24,26 @@ export const removeManagerFromShow = onCall({ region: 'us-central1' }, async (re
     throw new HttpsError('failed-precondition', 'Show admin cannot remove themselves.');
   }
 
+  const jobAccessSnap = await db.collection('users').doc(userId)
+    .collection('jobAccess')
+    .where('showId', '==', showId)
+    .limit(1)
+    .get();
+
   const batch = db.batch();
   batch.delete(db.collection('shows').doc(showId).collection('managers').doc(userId));
-  batch.delete(db.collection('users').doc(userId).collection('showAccess').doc(showId));
+  const showAccessRef = db.collection('users').doc(userId).collection('showAccess').doc(showId);
+  if (jobAccessSnap.empty) {
+    batch.delete(showAccessRef);
+  } else {
+    batch.set(showAccessRef, {
+      showRole: 'job_member',
+      managerRole: FieldValue.delete(),
+      jobMember: true,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: callerUid,
+    }, { merge: true });
+  }
   await batch.commit();
   return { ok: true };
 });
