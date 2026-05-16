@@ -47,8 +47,7 @@ service firebase.storage {
     }
 
     function isShowAdmin(showId) {
-      return isSuperAdmin()
-        || isShowOwner(showId)
+      return isShowOwner(showId)
         || (
           isShowManager(showId)
           && firestore.get(managerPath(showId, request.auth.uid)).data.managerRole == 'full_manager'
@@ -56,15 +55,7 @@ service firebase.storage {
     }
 
     function canAccessShow(showId) {
-      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId) || isShowMember(showId);
-    }
-
-    function managerHasFeature(showId, feature) {
-      return isShowAdmin(showId)
-        || (
-          isShowManager(showId)
-          && firestore.get(managerPath(showId, request.auth.uid)).data.featureAccess[feature] == true
-        );
+      return isShowOwner(showId) || isShowManager(showId) || isShowMember(showId);
     }
 
     function managerCanAccessJob(showId, jobId) {
@@ -85,8 +76,8 @@ service firebase.storage {
     }
 
     match /shows/{showId}/icons/{fileName=**} {
-      allow read: if canAccessShow(showId);
-      allow write: if managerHasFeature(showId, 'showSettings');
+      allow read: if isSuperAdmin() || canAccessShow(showId);
+      allow write: if isSuperAdmin() || isShowAdmin(showId);
     }
 
     match /shows/{showId}/files/{fileName=**} {

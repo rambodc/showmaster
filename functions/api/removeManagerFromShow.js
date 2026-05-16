@@ -12,8 +12,10 @@ export const removeManagerFromShow = onCall({ region: 'us-central1' }, async (re
     throw new HttpsError('invalid-argument', 'showId and userId are required.');
   }
 
-  const allowed = await canUseManagerFeature(callerUid, showId, 'managers');
-  if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
+  if (callerSystemRole !== 'super_admin') {
+    const allowed = await canUseManagerFeature(callerUid, showId, 'managers');
+    if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
+  }
 
   const show = await getShow(showId);
   if (show.ownerId === userId) {
@@ -47,5 +49,3 @@ export const removeManagerFromShow = onCall({ region: 'us-central1' }, async (re
   await batch.commit();
   return { ok: true };
 });
-
-export const removeUserFromShow = removeManagerFromShow;

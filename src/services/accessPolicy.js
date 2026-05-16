@@ -1,22 +1,7 @@
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { FiArrowLeft, FiBriefcase, FiGrid, FiSettings, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiBriefcase, FiUsers } from 'react-icons/fi';
 import { db } from '../firebase';
-import { MODULE_KEYS, MODULE_META } from './moduleCatalog';
-
-export { MODULE_KEYS, MODULE_META };
-
-export function getModuleIcon(moduleKey) {
-  return FiGrid;
-}
-
-export function getModuleDescription(moduleKey) {
-  return MODULE_META[moduleKey]?.description || 'Module configured for this show.';
-}
-
-export function normalizeModuleAccess(input = {}) {
-  return {};
-}
 
 export function useShowContext({ showId, appUser }) {
   const [show, setShow] = useState(null);
@@ -113,15 +98,14 @@ export function useShowContext({ showId, appUser }) {
     const managerRole = manager?.managerRole || null;
     const memberJobIds = jobMemberAccess.map((row) => row.jobId).filter(Boolean);
     const hasMemberAccess = Boolean(showAccess?.jobMember || memberJobIds.length);
-    const hasShowAccess = Boolean(isSuperAdmin || managerRole || hasMemberAccess || show?.ownerId === appUser?.id);
+    const hasShowAccess = Boolean(managerRole || hasMemberAccess || show?.ownerId === appUser?.id);
     const isShowOwner = Boolean(show?.ownerId === appUser?.id);
-    const isFullManager = Boolean(isSuperAdmin || isShowOwner || managerRole === 'full_manager');
+    const isFullManager = Boolean(isShowOwner || managerRole === 'full_manager');
     const featureAccess = isFullManager
-      ? { jobs: true, managers: true, showSettings: true }
+      ? { jobs: true, managers: true }
       : {
         jobs: Boolean(manager?.featureAccess?.jobs),
         managers: Boolean(manager?.featureAccess?.managers),
-        showSettings: Boolean(manager?.featureAccess?.showSettings),
       };
     const jobAccess = isFullManager
       ? { mode: 'all', jobIds: [] }
@@ -152,22 +136,13 @@ export function useShowContext({ showId, appUser }) {
   }, [appUser?.id, appUser?.systemRole, jobMemberAccess, loading, manager, show, showAccess]);
 }
 
-export function canAccessModule({ moduleKey, moduleEnabled, ctx }) {
-  return false;
-}
-
-export function buildShowPath(showName, moduleKey) {
-  const slug = String(showName || 'show').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return `shows/${slug}/${moduleKey}`;
-}
-
 const truncateNavLabel = (value) => {
   const label = String(value || 'Untitled').trim() || 'Untitled';
   return label.length > 10 ? `${label.slice(0, 10)}..` : label;
 };
 
 export function canAccessJob(ctx, jobId) {
-  if (ctx?.isSuperAdmin || ctx?.isFullManager || ctx?.jobAccess?.mode === 'all') return true;
+  if (ctx?.isFullManager || ctx?.jobAccess?.mode === 'all') return true;
   return Boolean(jobId && ctx?.jobAccess?.jobIds?.includes(jobId));
 }
 
@@ -181,7 +156,7 @@ export function buildShowNavItems({ showId, jobs = [], ctx }) {
   };
   const managerTools = [];
   if (ctx?.featureAccess?.jobs) managerTools.push({
-    label: 'Jobs',
+    label: 'Dashboard',
     icon: FiBriefcase,
     to: `/shows/${showId}/jobs`,
     matches: [`/shows/${showId}/jobs`],
@@ -192,13 +167,6 @@ export function buildShowNavItems({ showId, jobs = [], ctx }) {
     to: `/shows/${showId}/managers`,
     matches: [`/shows/${showId}/managers`],
   });
-  if (ctx?.featureAccess?.showSettings) managerTools.push({
-    label: 'Show Settings',
-    icon: FiSettings,
-    to: `/admin/shows`,
-    matches: ['/admin/shows'],
-  });
-
   const visibleJobs = (jobs || []).filter((job) => canAccessJob(ctx, job.id));
   const grouped = visibleJobs.reduce((acc, job) => {
     const type = String(job.type || 'General').trim() || 'General';
@@ -232,12 +200,10 @@ export function buildShowNavItems({ showId, jobs = [], ctx }) {
 }
 
 export function hasShowPermission(ctx, permission) {
-  if (ctx?.isSuperAdmin) return true;
   if (!ctx?.hasShowAccess) return false;
 
   if (permission === 'view_show') return Boolean(ctx?.featureAccess?.jobs || ctx?.jobAccess?.jobIds?.length || ctx?.isFullManager || ctx?.hasMemberAccess);
   if (permission === 'manage_managers') return Boolean(ctx?.featureAccess?.managers);
   if (permission === 'manage_jobs') return Boolean(ctx?.featureAccess?.jobs);
-  if (permission === 'show_settings') return Boolean(ctx?.featureAccess?.showSettings);
   return false;
 }

@@ -13,7 +13,6 @@ function normalizeManagerAccess(role, featureAccess = {}, jobAccess = {}) {
     featureAccess: {
       jobs: Boolean(featureAccess.jobs),
       managers: Boolean(featureAccess.managers),
-      showSettings: Boolean(featureAccess.showSettings),
     },
     jobAccess: {
       mode: jobAccess.mode === 'all' ? 'all' : 'selected',
@@ -47,22 +46,19 @@ export const assignManagerToShow = onCall({ region: 'us-central1' }, async (requ
   if (!userSnap.exists) throw new HttpsError('not-found', 'User not found.');
   const show = await getShow(showId);
 
-  if (show.ownerId === userId) {
-    throw new HttpsError('failed-precondition', 'Owner membership is managed automatically.');
-  }
-
   const user = userSnap.data() || {};
 
   const showRef = db.collection('shows').doc(showId);
   const managerRef = showRef.collection('managers').doc(userId);
   const accessRef = db.collection('users').doc(userId).collection('showAccess').doc(showId);
   const now = FieldValue.serverTimestamp();
-  const access = normalizeManagerAccess(managerRole, request.data?.featureAccess, request.data?.jobAccess);
+  const effectiveRole = show.ownerId === userId ? 'full_manager' : managerRole;
+  const access = normalizeManagerAccess(effectiveRole, request.data?.featureAccess, request.data?.jobAccess);
   const managerPayload = {
     uid: userId,
     email: user.email ? String(user.email).toLowerCase() : null,
     displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || null,
-    managerRole,
+    managerRole: effectiveRole,
     ...access,
     addedBy: callerUid,
     updatedAt: now,
@@ -76,8 +72,8 @@ export const assignManagerToShow = onCall({ region: 'us-central1' }, async (requ
     iconUrls: show.iconUrls || null,
     iconUrl: show.iconUrl || null,
     ownerId: show.ownerId || null,
-    managerRole,
-    showRole: managerRole,
+    managerRole: effectiveRole,
+    showRole: effectiveRole,
     updatedAt: now,
     createdAt: now,
   };
@@ -89,5 +85,3 @@ export const assignManagerToShow = onCall({ region: 'us-central1' }, async (requ
 
   return { ok: true };
 });
-
-export const assignUserToShow = assignManagerToShow;

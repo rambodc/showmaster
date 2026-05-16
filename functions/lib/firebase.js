@@ -29,14 +29,7 @@ export async function assertSuperAdmin(uid) {
   }
 }
 
-export function normalizeModuleAccess(input = {}) {
-  return {};
-}
-
 export async function canManageShow(uid, showId) {
-  const role = await getSystemRole(uid);
-  if (role === 'super_admin') return true;
-
   const showSnap = await db.collection('shows').doc(showId).get();
   if (!showSnap.exists) return false;
   const show = showSnap.data() || {};
@@ -48,9 +41,6 @@ export async function canManageShow(uid, showId) {
 }
 
 export async function canUseManagerFeature(uid, showId, feature) {
-  const role = await getSystemRole(uid);
-  if (role === 'super_admin') return true;
-
   const showSnap = await db.collection('shows').doc(showId).get();
   if (!showSnap.exists) return false;
   const show = showSnap.data() || {};
@@ -63,9 +53,6 @@ export async function canUseManagerFeature(uid, showId, feature) {
 }
 
 export async function canAccessJob(uid, showId, jobId) {
-  const role = await getSystemRole(uid);
-  if (role === 'super_admin') return true;
-
   const showSnap = await db.collection('shows').doc(showId).get();
   if (!showSnap.exists) return false;
   const show = showSnap.data() || {};

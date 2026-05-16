@@ -17,6 +17,7 @@ export default function AppShell({
   title = 'Showmaster',
   children,
   navItems,
+  showIconUrl = '',
   showMenuButton = true,
   showBackButton = false,
 }) {
@@ -90,6 +91,9 @@ export default function AppShell({
     <div className="app-shell">
       <aside className="app-shell-sidebar">
         <div className="app-shell-brand-row">
+          {showBackButton && showIconUrl ? (
+            <img className="app-shell-show-icon" src={showIconUrl} alt="" />
+          ) : null}
           <div>
             <div className="app-shell-account-email" title={email || undefined}>{emailLabel}</div>
             <div className="app-shell-brand">{brandTitle}</div>
@@ -104,7 +108,10 @@ export default function AppShell({
         <div className="app-shell-drawer-top">
           <div className="app-shell-drawer-title-row">
             <div className="app-shell-account-email" title={email || undefined}>{emailLabel}</div>
-            <strong>{title}</strong>
+            <strong className="app-shell-drawer-title">
+              {showBackButton && showIconUrl ? <img className="app-shell-show-icon small" src={showIconUrl} alt="" /> : null}
+              <span>{title}</span>
+            </strong>
           </div>
           <button type="button" className="app-shell-icon-btn" onClick={() => setMobileOpen(false)}>
             <FiX />

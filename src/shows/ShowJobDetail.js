@@ -20,7 +20,7 @@ import RightDrawer from '../components/RightDrawer';
 import ShowRoute from '../components/ShowRoute';
 import { NoticeContext, UserContext } from '../App';
 import { db, functions, storage } from '../firebase';
-import { buildShowNavItems, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessJob, useShowContext } from '../services/accessPolicy';
 import { uploadSquareImageSet } from '../services/imageResize';
 import './showPages.css';
 
@@ -55,6 +55,10 @@ const emptyRequest = {
   fieldsText: '',
 };
 
+function getShowIconUrl(show) {
+  return show?.iconUrls?.md || show?.iconUrls?.sm || show?.iconUrls?.lg || show?.iconUrl || '';
+}
+
 function responseDraftFrom(response = {}) {
   return {
     message: response.message || '',
@@ -83,6 +87,7 @@ export default function ShowJobDetail() {
   const navigate = useNavigate();
   const { notify } = useContext(NoticeContext);
   const [job, setJob] = useState(null);
+  const [allJobs, setAllJobs] = useState([]);
   const [company, setCompany] = useState(emptyCompany);
   const [contacts, setContacts] = useState([]);
   const [members, setMembers] = useState([]);
@@ -112,7 +117,7 @@ export default function ShowJobDetail() {
   const [companyLogoPreview, setCompanyLogoPreview] = useState('');
 
   const canManage = Boolean(ctx.featureAccess?.jobs);
-  const isMemberOnly = Boolean(ctx.hasMemberAccess && !canManage && !ctx.isSuperAdmin && !ctx.isFullManager);
+  const isMemberOnly = Boolean(ctx.hasMemberAccess && !canManage && !ctx.isFullManager);
 
   useEffect(() => {
     if (!showId || !jobId) return undefined;
@@ -131,6 +136,30 @@ export default function ShowJobDetail() {
     });
     return () => unsub();
   }, [jobId, showId]);
+
+  useEffect(() => {
+    if (!showId || ctx.loading) return undefined;
+    if (ctx.jobAccess?.mode === 'selected' && !ctx.isFullManager) {
+      const ids = ctx.jobAccess.jobIds || [];
+      if (!ids.length) {
+        setAllJobs([]);
+        return undefined;
+      }
+      const unsubs = ids.map((id) => onSnapshot(doc(db, 'shows', showId, 'jobs', id), (snap) => {
+        setAllJobs((prev) => {
+          const rest = prev.filter((item) => item.id !== id);
+          return snap.exists() ? [...rest, { id: snap.id, ...snap.data() }] : rest;
+        });
+      }));
+      return () => unsubs.forEach((unsub) => unsub());
+    }
+
+    const q = query(collection(db, 'shows', showId, 'jobs'), orderBy('updatedAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setAllJobs(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((item) => canAccessJob(ctx, item.id)));
+    });
+    return () => unsub();
+  }, [ctx, ctx.isFullManager, ctx.jobAccess, ctx.loading, showId]);
 
   useEffect(() => {
     if (!showId || !jobId) return undefined;
@@ -205,7 +234,7 @@ export default function ShowJobDetail() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [companyLogoFile]);
 
-  const navItems = useMemo(() => buildShowNavItems({ showId, jobs: job ? [job] : [], ctx }), [ctx, job, showId]);
+  const navItems = useMemo(() => buildShowNavItems({ showId, jobs: allJobs.length ? allJobs : (job ? [job] : []), ctx }), [allJobs, ctx, job, showId]);
 
   const updateJob = async (event) => {
     event.preventDefault();
@@ -376,7 +405,7 @@ export default function ShowJobDetail() {
 
   return (
     <ShowRoute permission="view_show">
-      <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showBackButton>
+      <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showIconUrl={getShowIconUrl(ctx.show)} showBackButton>
         <div className="show-page-stack">
           <div className="show-page-top-nav">
             <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/jobs`)}>

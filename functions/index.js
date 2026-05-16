@@ -1,8 +1,8 @@
 import { createInternalUser } from './api/createInternalUser.js';
-import { assignUserToShow, assignManagerToShow } from './api/assignUserToShow.js';
-import { updateShowMemberAccess, updateShowManagerAccess } from './api/updateShowMemberAccess.js';
+import { assignManagerToShow } from './api/assignManagerToShow.js';
+import { updateShowManagerAccess } from './api/updateShowManagerAccess.js';
 import { searchUsers } from './api/searchUsers.js';
-import { removeUserFromShow, removeManagerFromShow } from './api/removeUserFromShow.js';
+import { removeManagerFromShow } from './api/removeManagerFromShow.js';
 import { createShow } from './api/createShow.js';
 import { setShowIcons, updateShowDetails } from './api/setShowIcons.js';
 import {
@@ -23,12 +23,9 @@ import { draftJobWithAi } from './api/aiJobs.js';
 // Jobs architecture callables are exported here so CI deploys them with functions changes.
 export {
   createInternalUser,
-  assignUserToShow,
   assignManagerToShow,
-  updateShowMemberAccess,
   updateShowManagerAccess,
   searchUsers,
-  removeUserFromShow,
   removeManagerFromShow,
   createShow,
   setShowIcons,

@@ -44,13 +44,12 @@ export function defaultJobSummary() {
   };
 }
 
-export const MANAGER_FEATURES = ['jobs', 'managers', 'showSettings'];
+export const MANAGER_FEATURES = ['jobs', 'managers'];
 
 export function defaultFeatureAccess(full = false) {
   return {
     jobs: Boolean(full),
     managers: Boolean(full),
-    showSettings: Boolean(full),
   };
 }
 

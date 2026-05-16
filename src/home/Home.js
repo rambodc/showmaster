@@ -15,36 +15,14 @@ function Home() {
   const appUser = useContext(UserContext);
   const navigate = useNavigate();
 
-  const [shows, setShows] = useState([]);
   const [assignedShows, setAssignedShows] = useState([]);
   const [assignedShowDetails, setAssignedShowDetails] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (appUser?.systemRole !== 'super_admin') {
-      setShows([]);
-      return undefined;
-    }
-    const q = query(collection(db, 'shows'), orderBy('updatedAt', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setShows(list);
-      setLoading(false);
-    }, () => {
-      setShows([]);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, [appUser?.systemRole]);
-
-  useEffect(() => {
     if (!appUser?.id) {
       setAssignedShows([]);
       setLoading(false);
-      return undefined;
-    }
-
-    if (appUser?.systemRole === 'super_admin') {
       return undefined;
     }
 
@@ -59,10 +37,10 @@ function Home() {
     });
 
     return () => unsub();
-  }, [appUser?.id, appUser?.systemRole]);
+  }, [appUser?.id]);
 
   useEffect(() => {
-    if (appUser?.systemRole === 'super_admin' || assignedShows.length === 0) {
+    if (assignedShows.length === 0) {
       setAssignedShowDetails({});
       return undefined;
     }
@@ -78,11 +56,10 @@ function Home() {
       }));
 
     return () => unsubs.forEach((unsub) => unsub());
-  }, [appUser?.systemRole, assignedShows]);
+  }, [assignedShows]);
 
   const visibleShows = useMemo(() => {
     if (!appUser?.id) return [];
-    if (appUser?.systemRole === 'super_admin') return shows;
     return assignedShows.map((show) => {
       const showId = show.showId || show.id;
       const liveShow = assignedShowDetails[showId];
@@ -95,7 +72,7 @@ function Home() {
         iconUrl: liveShow?.iconUrl || show.iconUrl,
       };
     });
-  }, [appUser?.id, appUser?.systemRole, assignedShowDetails, assignedShows, shows]);
+  }, [appUser?.id, assignedShowDetails, assignedShows]);
 
   return (
     <AppShell title="All Shows">

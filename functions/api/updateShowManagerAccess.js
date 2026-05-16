@@ -13,7 +13,6 @@ function normalizeManagerAccess(role, featureAccess = {}, jobAccess = {}) {
     featureAccess: {
       jobs: Boolean(featureAccess.jobs),
       managers: Boolean(featureAccess.managers),
-      showSettings: Boolean(featureAccess.showSettings),
     },
     jobAccess: {
       mode: jobAccess.mode === 'all' ? 'all' : 'selected',
@@ -34,8 +33,10 @@ export const updateShowManagerAccess = onCall({ region: 'us-central1' }, async (
     throw new HttpsError('invalid-argument', 'showId and userId are required.');
   }
 
-  const allowed = await canUseManagerFeature(callerUid, showId, 'managers');
-  if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
+  if (callerSystemRole !== 'super_admin') {
+    const allowed = await canUseManagerFeature(callerUid, showId, 'managers');
+    if (!allowed) throw new HttpsError('permission-denied', 'Not allowed for this show.');
+  }
   if (callerSystemRole !== 'super_admin' && managerRole === 'full_manager') {
     const canGrantFull = await canManageShow(callerUid, showId);
     if (!canGrantFull) throw new HttpsError('permission-denied', 'Full manager required to grant full manager access.');
@@ -43,7 +44,7 @@ export const updateShowManagerAccess = onCall({ region: 'us-central1' }, async (
   const show = await getShow(showId);
 
   if (show.ownerId === userId) {
-    throw new HttpsError('failed-precondition', 'Show owner permissions cannot be changed.');
+    return { ok: true, lockedOwner: true };
   }
 
   if (callerSystemRole !== 'super_admin' && callerUid === userId && typeof managerRole === 'string' && managerRole !== 'full_manager') {
@@ -85,5 +86,3 @@ export const updateShowManagerAccess = onCall({ region: 'us-central1' }, async (
   await batch.commit();
   return { ok: true };
 });
-
-export const updateShowMemberAccess = updateShowManagerAccess;

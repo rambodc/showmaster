@@ -113,7 +113,7 @@ export default function AdminUserDetail() {
           </section>
 
           <section className="show-card">
-            <h3 style={{ marginTop: 0 }}>Assign show</h3>
+            <h3 style={{ marginTop: 0 }}>Assign manager access</h3>
             <div className="form-grid">
               <select value={assignForm.showId} onChange={(e) => setAssignForm((prev) => ({ ...prev, showId: e.target.value }))}>
                 <option value="">Select show</option>
@@ -133,19 +133,20 @@ export default function AdminUserDetail() {
             {accessRows.length === 0 ? <p className="info-note">No shows assigned.</p> : null}
             {accessRows.map((row) => {
               const showId = row.showId || row.id;
+              const showRecord = shows.find((show) => show.id === showId);
               const busy = busyId === showId;
               const role = row.managerRole || row.showRole || 'custom_manager';
-              const isOwner = role === 'full_manager' && row.ownerId === uid;
+              const isOwner = role === 'full_manager' && (showRecord?.ownerId || row.ownerId) === uid;
               return (
                 <article className="member-card" key={showId}>
                   <div>
-                    <strong>{row.showName || showId}</strong>
-                    <p className="info-note">{row.showDescription || row.status || 'active'}</p>
+                    <strong>{showRecord?.name || row.showName || showId}</strong>
+                    <p className="info-note">{showRecord?.description || row.showDescription || row.status || 'active'}</p>
                   </div>
                   <div className="switch-row">
                     <span>Manager Level</span>
                     {isOwner ? (
-                      <strong>full_manager</strong>
+                      <strong>Owner / Full Manager</strong>
                     ) : (
                       <select value={role} disabled={busy} onChange={(e) => updateAccess(row, e.target.value)}>
                         <option value="custom_manager">custom_manager</option>
@@ -154,9 +155,6 @@ export default function AdminUserDetail() {
                     )}
                   </div>
                   <div className="show-actions">
-                    <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/jobs`)}>
-                      Open Show
-                    </button>
                     {!isOwner ? (
                       <button className="show-btn-danger" type="button" onClick={() => removeAccess(row)} disabled={busy}>
                         <FiTrash2 /> Remove

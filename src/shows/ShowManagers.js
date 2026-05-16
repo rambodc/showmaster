@@ -12,6 +12,10 @@ import { buildShowNavItems, useShowContext } from '../services/accessPolicy';
 import { defaultFeatureAccess, defaultJobAccess, getManagerRoleLabel } from '../services/jobDefaults';
 import './showPages.css';
 
+function getShowIconUrl(show) {
+  return show?.iconUrls?.md || show?.iconUrls?.sm || show?.iconUrls?.lg || show?.iconUrl || '';
+}
+
 function getManagerName(manager) {
   return manager?.displayName || manager?.email || manager?.uid || manager?.id || 'Manager';
 }
@@ -197,7 +201,7 @@ export default function ShowManagers() {
 
   return (
     <ShowRoute permission="manage_managers">
-      <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showBackButton>
+      <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showIconUrl={getShowIconUrl(ctx.show)} showBackButton>
         <div className="show-page-stack members-page">
           <div className="show-page-top-nav">
             <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/jobs`)}>
@@ -209,7 +213,7 @@ export default function ShowManagers() {
             <div>
               <span className="show-chip"><FiUsers /> Managers</span>
               <h2 className="show-title">Managers</h2>
-              <p className="show-subtitle">Managers control show-level tools. Job Members are reserved for job-only access later.</p>
+              <p className="show-subtitle">Managers control show-level tools. Job members are managed inside each job.</p>
             </div>
             <button className="show-btn member-add-button" type="button" onClick={openAdd}>
               <FiUserPlus /> Add Manager
@@ -247,7 +251,7 @@ export default function ShowManagers() {
                       </div>
                     </div>
                     <div className="member-row-meta">
-                      <span className="member-access-badge badge-owner">{getManagerRoleLabel(manager.managerRole)}</span>
+                      <span className="member-access-badge badge-owner">{isOwner ? 'Owner / Full Manager' : getManagerRoleLabel(manager.managerRole)}</span>
                       <button className="show-btn-outline" type="button" onClick={() => openEdit(manager)} disabled={busy || isOwner}>
                         <FiEdit3 /> Edit
                       </button>
@@ -296,7 +300,6 @@ export default function ShowManagers() {
               <>
                 <label className="switch-row"><span>Jobs feature</span><input type="checkbox" checked={form.featureAccess.jobs} onChange={(e) => setFeature('jobs', e.target.checked)} /></label>
                 <label className="switch-row"><span>Managers feature</span><input type="checkbox" checked={form.featureAccess.managers} onChange={(e) => setFeature('managers', e.target.checked)} /></label>
-                <label className="switch-row"><span>Show settings feature</span><input type="checkbox" checked={form.featureAccess.showSettings} onChange={(e) => setFeature('showSettings', e.target.checked)} /></label>
                 <label className="member-form-label">
                   <span>Job Access</span>
                   <select value={form.jobAccess.mode} onChange={(e) => setForm((prev) => ({ ...prev, jobAccess: { ...prev.jobAccess, mode: e.target.value } }))}>

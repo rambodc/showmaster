@@ -48,7 +48,6 @@ export function defaultFeatureAccess(full = false) {
   return {
     jobs: Boolean(full),
     managers: Boolean(full),
-    showSettings: Boolean(full),
   };
 }
 

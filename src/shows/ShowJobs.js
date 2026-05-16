@@ -40,7 +40,8 @@ export default function ShowJobs() {
   useEffect(() => {
     if (!showId) return undefined;
     setLoading(true);
-    if (!ctx.loading && ctx.jobAccess?.mode === 'selected' && !ctx.isFullManager && !ctx.isSuperAdmin) {
+    if (ctx.loading) return undefined;
+    if (!ctx.loading && ctx.jobAccess?.mode === 'selected' && !ctx.isFullManager) {
       const ids = ctx.jobAccess.jobIds || [];
       if (!ids.length) {
         setJobs([]);
@@ -66,7 +67,7 @@ export default function ShowJobs() {
       setLoading(false);
     });
     return () => unsub();
-  }, [ctx.isFullManager, ctx.isSuperAdmin, ctx.jobAccess, ctx.loading, showId]);
+  }, [ctx.isFullManager, ctx.jobAccess, ctx.loading, showId]);
 
   const navItems = useMemo(() => buildShowNavItems({ showId, jobs, ctx }), [ctx, jobs, showId]);
   const showIconUrl = getShowIconUrl(ctx.show);
@@ -171,7 +172,7 @@ export default function ShowJobs() {
 
   return (
     <ShowRoute permission="view_show">
-      <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showBackButton>
+      <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showIconUrl={showIconUrl} showBackButton>
         <div className="show-page-stack">
           <section className="show-hero-card">
             <span className="show-chip"><FiBriefcase /> Jobs</span>
@@ -213,7 +214,7 @@ export default function ShowJobs() {
           <section className="show-card">
             <div className="member-list-toolbar">
               <div>
-                <h3>Jobs</h3>
+                <h3>Dashboard</h3>
                 <p className="info-note">Company details are stored per job. Other widgets are reserved for future phases.</p>
               </div>
               <label className="member-filter">

@@ -47,8 +47,7 @@ service cloud.firestore {
     }
 
     function isShowAdmin(showId) {
-      return isSuperAdmin()
-        || isShowOwner(showId)
+      return isShowOwner(showId)
         || (
           isShowManager(showId)
           && get(managerPath(showId, request.auth.uid)).data.managerRole == 'full_manager'
@@ -56,7 +55,7 @@ service cloud.firestore {
     }
 
     function canAccessShow(showId) {
-      return isSuperAdmin() || isShowOwner(showId) || isShowManager(showId) || isShowMember(showId);
+      return isShowOwner(showId) || isShowManager(showId) || isShowMember(showId);
     }
 
     function managerHasFeature(showId, feature) {
