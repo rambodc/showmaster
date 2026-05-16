@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import './Auth.css';
 
 function Login() {
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const navigate = useNavigate();
+  const nextPath = searchParams.get('next') || '/shows';
+  const safeNextPath = nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/shows';
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -17,7 +20,7 @@ function Login() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/shows');
+      navigate(safeNextPath);
     } catch (err) {
       setError(err.message);
     }

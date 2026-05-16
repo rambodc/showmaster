@@ -8,6 +8,7 @@ import './Auth.css';
 
 function messageFromError(err) {
   const text = String(err?.message || '');
+  if (text.includes('internal')) return 'Registration could not finish automatically. Sign in to continue.';
   if (text.includes('already accepted')) return 'This invite was already accepted. Sign in to continue.';
   if (text.includes('expired')) return 'This invite has expired. Ask the person who invited you to send a new one.';
   if (text.includes('not found')) return 'This invite link is invalid.';
@@ -48,6 +49,13 @@ export default function InviteRegister() {
 
   const onChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
+  const goToLogin = (email, next) => {
+    const params = new URLSearchParams();
+    if (email) params.set('email', email);
+    if (next && String(next).startsWith('/')) params.set('next', next);
+    navigate(`/signin${params.toString() ? `?${params.toString()}` : ''}`, { replace: true });
+  };
+
   const acceptInvite = async (event) => {
     event.preventDefault();
     setError('');
@@ -64,11 +72,23 @@ export default function InviteRegister() {
         lastName: form.lastName,
         password: form.password,
       });
-      if (result.data?.customToken) {
+      const redirectPath = result.data?.redirectPath || invite?.redirectPath || '/shows';
+      const registeredEmail = result.data?.email || invite?.email || '';
+      if (!result.data?.customToken) {
+        notify('Registration complete. Sign in to continue.', 'success');
+        goToLogin(registeredEmail, redirectPath);
+        return;
+      }
+      try {
         await signInWithCustomToken(auth, result.data.customToken);
+      } catch (err) {
+        console.error('Invite auto sign-in failed:', err);
+        notify('Registration complete. Sign in to continue.', 'success');
+        goToLogin(registeredEmail, redirectPath);
+        return;
       }
       notify('Registration complete.', 'success');
-      navigate(result.data?.redirectPath || invite?.redirectPath || '/shows', { replace: true });
+      navigate(redirectPath, { replace: true });
     } catch (err) {
       setError(messageFromError(err));
     } finally {

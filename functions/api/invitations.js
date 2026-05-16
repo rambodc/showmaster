@@ -305,12 +305,19 @@ export const acceptInvite = onCall({ region: 'us-central1' }, async (request) =>
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
 
-  const customToken = await adminAuth.createCustomToken(created.uid);
+  let customToken = null;
+  try {
+    customToken = await adminAuth.createCustomToken(created.uid);
+  } catch (err) {
+    console.error('Failed to create invite sign-in token:', err);
+  }
+
   return {
     ok: true,
     uid: created.uid,
     email,
     customToken,
+    requiresSignIn: !customToken,
     redirectPath: invite.redirectPath || '/shows',
   };
 });
