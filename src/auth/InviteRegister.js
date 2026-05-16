@@ -16,6 +16,11 @@ function messageFromError(err) {
   return text || 'Unable to load invite.';
 }
 
+function shouldRedirectToLogin(err) {
+  const text = String(err?.message || '').toLowerCase();
+  return text.includes('internal') || text.includes('already accepted') || text.includes('already registered');
+}
+
 export default function InviteRegister() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -36,7 +41,13 @@ export default function InviteRegister() {
         const result = await fn({ token });
         if (active) setInvite(result.data?.invite || null);
       } catch (err) {
-        if (active) setError(messageFromError(err));
+        if (active) {
+          const message = messageFromError(err);
+          setError(message);
+          if (shouldRedirectToLogin(err)) {
+            window.setTimeout(() => navigate('/signin', { replace: true }), 1200);
+          }
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -45,7 +56,7 @@ export default function InviteRegister() {
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [navigate, token]);
 
   const onChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -90,7 +101,12 @@ export default function InviteRegister() {
       notify('Registration complete.', 'success');
       navigate(redirectPath, { replace: true });
     } catch (err) {
-      setError(messageFromError(err));
+      const message = messageFromError(err);
+      setError(message);
+      if (shouldRedirectToLogin(err)) {
+        notify(message, 'info');
+        goToLogin(invite?.email || '', invite?.redirectPath || '/shows');
+      }
     } finally {
       setSaving(false);
     }
