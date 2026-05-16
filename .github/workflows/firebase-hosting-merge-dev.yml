@@ -38,7 +38,7 @@ jobs:
             BEFORE="$(git rev-list --max-parents=0 "$AFTER")"
           fi
 
-          if git diff --name-only "$BEFORE" "$AFTER" | grep -q '^functions/'; then
+          if git diff --name-only "$BEFORE" "$AFTER" | grep -Eq '^(functions/|\.github/workflows/firebase-hosting-merge-dev\.yml$)'; then
             echo "functions_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "functions_changed=false" >> "$GITHUB_OUTPUT"
@@ -90,4 +90,4 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_GHA_CREDS_PATH }}
         run: |
-          firebase deploy --only functions --project showmaster1-f1a9f --non-interactive --message "CI deploy functions (dev)"
+          firebase deploy --only functions --project showmaster1-f1a9f --non-interactive --force --message "CI deploy functions (dev)"
