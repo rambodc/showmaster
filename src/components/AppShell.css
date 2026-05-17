@@ -6,13 +6,13 @@
 }
 
 .app-shell-sidebar {
-  width: 250px;
+  width: 220px;
   background: rgba(255, 255, 255, 0.9);
   border-right: 1px solid #dbeafe;
-  padding: 20px 14px;
+  padding: 14px 10px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -22,13 +22,13 @@
 .app-shell-brand-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .app-shell-show-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   object-fit: cover;
   border: 1px solid #bae6fd;
   background: #f8fafc;
@@ -42,9 +42,9 @@
 }
 
 .app-shell-account-email {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   color: #64748b;
-  max-width: 210px;
+  max-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -52,7 +52,7 @@
 }
 
 .app-shell-brand {
-  font-size: 1.28rem;
+  font-size: 1.06rem;
   font-weight: 800;
   letter-spacing: 0.01em;
   color: #0f172a;
@@ -68,27 +68,35 @@
 .app-shell-content {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 24px 18px;
+  padding: 22px 16px;
 }
 
 .app-shell-nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .app-shell-nav-item {
   border: 0;
   background: transparent;
   color: #334155;
-  font-weight: 600;
-  border-radius: 12px;
+  font-weight: 650;
+  border-radius: 9px;
   cursor: pointer;
-  padding: 10px 12px;
+  padding: 7px 8px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   text-align: left;
+  font-size: 0.88rem;
+  min-height: 32px;
+}
+
+.app-shell-nav-item svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
 }
 
 .app-shell-nav-item.active {
@@ -206,10 +214,10 @@
     border-right: 1px solid #dbeafe;
     z-index: 60;
     transition: left 180ms ease;
-    padding: 14px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
   }
 
   .app-shell-drawer.open {

@@ -19,6 +19,22 @@ function companyLabel(job) {
   return job?.widgetSummary?.company?.name || 'No company yet';
 }
 
+const launcherPalettes = [
+  'linear-gradient(145deg, #38bdf8, #2563eb)',
+  'linear-gradient(145deg, #34d399, #059669)',
+  'linear-gradient(145deg, #fb7185, #e11d48)',
+  'linear-gradient(145deg, #fbbf24, #f97316)',
+  'linear-gradient(145deg, #a78bfa, #7c3aed)',
+  'linear-gradient(145deg, #2dd4bf, #0f766e)',
+  'linear-gradient(145deg, #f472b6, #be185d)',
+];
+
+function paletteForJob(job, index) {
+  const key = `${job?.type || ''}-${job?.status || ''}-${index}`;
+  const total = key.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return launcherPalettes[total % launcherPalettes.length];
+}
+
 export default function ShowJobs() {
   const { showId } = useParams();
   const appUser = useContext(UserContext);
@@ -75,8 +91,9 @@ export default function ShowJobs() {
 
   const filteredJobs = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return jobs;
-    return jobs.filter((job) => {
+    const accessibleJobs = jobs.filter((job) => canAccessJob(ctx, job.id));
+    if (!term) return accessibleJobs;
+    return accessibleJobs.filter((job) => {
       const haystack = [
         job.title,
         job.description,
@@ -88,7 +105,7 @@ export default function ShowJobs() {
       ].join(' ').toLowerCase();
       return haystack.includes(term);
     });
-  }, [jobs, search]);
+  }, [ctx, jobs, search]);
 
   const createJob = async (event) => {
     event.preventDefault();
@@ -174,33 +191,21 @@ export default function ShowJobs() {
     <ShowRoute permission="view_show">
       <AppShell title={ctx.show?.name || 'Show'} navItems={navItems} showIconUrl={showIconUrl} showBackButton>
         <div className="show-page-stack">
-          <section className="show-hero-card">
-            <span className="show-chip"><FiBriefcase /> Jobs</span>
-            <div className="show-identity-row">
-              <div className="show-identity-icon">
-                {showIconUrl ? <img src={showIconUrl} alt="" /> : <FiImage size={22} />}
-              </div>
-              <div>
-                <h2 className="show-title">{ctx.show?.name || 'Untitled Show'}</h2>
-                <p className="show-subtitle">Build the show from job-based work packages. Company is the first active widget.</p>
+          <section className="show-hero-card show-dashboard-hero">
+            <div>
+              <span className="show-chip"><FiBriefcase /> Dashboard</span>
+              <div className="show-identity-row">
+                <div className="show-identity-icon">
+                  {showIconUrl ? <img src={showIconUrl} alt="" /> : <FiImage size={22} />}
+                </div>
+                <div>
+                  <h2 className="show-title">{ctx.show?.name || 'Untitled Show'}</h2>
+                  <p className="show-subtitle">Open the tools and jobs you can access.</p>
+                </div>
               </div>
             </div>
-            {ctx.featureAccess?.managers ? (
-              <div className="show-actions">
-                <button className="show-btn-outline" type="button" onClick={() => navigate(`/shows/${showId}/managers`)}>
-                  <FiUsers /> Manage Managers
-                </button>
-              </div>
-            ) : null}
-          </section>
-
-          {canManage ? (
-            <section className="show-card">
-              <div className="member-list-toolbar">
-                <div>
-                  <h3>Create Job</h3>
-                  <p className="info-note">Create and edit jobs from drawers to keep the job board clean.</p>
-                </div>
+            {canManage ? (
+              <div className="show-dashboard-actions">
                 <button className="show-btn" type="button" onClick={() => setDrawerOpen(true)}>
                   <FiPlus /> Create Job
                 </button>
@@ -208,39 +213,43 @@ export default function ShowJobs() {
                   <FiCpu /> AI Draft
                 </button>
               </div>
-            </section>
-          ) : null}
+            ) : null}
+          </section>
 
-          <section className="show-card">
-            <div className="member-list-toolbar">
+          <section className="show-card show-dashboard-card">
+            <div className="member-list-toolbar show-dashboard-toolbar">
               <div>
                 <h3>Dashboard</h3>
-                <p className="info-note">Company details are stored per job. Other widgets are reserved for future phases.</p>
+                <p className="info-note">Managers and jobs appear here as app icons based on your access.</p>
               </div>
               <label className="member-filter">
                 <FiSearch />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search jobs" />
               </label>
             </div>
-            <div className="members-grid">
-              {loading ? <p className="info-note">Loading jobs...</p> : null}
-              {!loading && filteredJobs.length === 0 ? <p className="info-note">No jobs found.</p> : null}
-              {filteredJobs.filter((job) => canAccessJob(ctx, job.id)).map((job) => (
-                <button key={job.id} type="button" className="member-card show-compact-row" onClick={() => navigate(`/shows/${showId}/jobs/${job.id}`)}>
-                  <div className="show-compact-row-main">
-                    <div className="show-compact-row-icon">
-                      {job.widgetSummary?.company?.logoUrls?.sm ? <img src={job.widgetSummary.company.logoUrls.sm} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <FiBriefcase size={16} color="#0284c7" />}
-                    </div>
-                    <div>
-                      <strong>{job.title || 'Untitled Job'}</strong>
-                      <p className="info-note">{companyLabel(job)}</p>
-                      <div className="show-compact-meta">
-                        <span>Status: {job.status || 'draft'}</span>
-                        <span>Type: {job.type || 'general'}</span>
-                        <span>Priority: {job.priority || 'normal'}</span>
-                      </div>
-                    </div>
-                  </div>
+
+            {loading ? <p className="info-note">Loading jobs...</p> : null}
+            {!loading && filteredJobs.length === 0 && !ctx.featureAccess?.managers ? <p className="info-note">No dashboard items found.</p> : null}
+
+            <div className="app-launcher-grid">
+              {ctx.featureAccess?.managers ? (
+                <button type="button" className="app-launcher-item" onClick={() => navigate(`/shows/${showId}/managers`)}>
+                  <span className="app-launcher-icon app-launcher-icon-managers">
+                    <FiUsers size={28} />
+                  </span>
+                  <span className="app-launcher-label">Managers</span>
+                </button>
+              ) : null}
+              {filteredJobs.map((job, index) => (
+                <button key={job.id} type="button" className="app-launcher-item" onClick={() => navigate(`/shows/${showId}/jobs/${job.id}`)}>
+                  <span className="app-launcher-icon" style={{ background: paletteForJob(job, index) }}>
+                    {job.widgetSummary?.company?.logoUrls?.sm ? (
+                      <img src={job.widgetSummary.company.logoUrls.sm} alt="" />
+                    ) : (
+                      <FiBriefcase size={28} />
+                    )}
+                  </span>
+                  <span className="app-launcher-label">{job.title || 'Untitled Job'}</span>
                 </button>
               ))}
             </div>
