@@ -138,7 +138,7 @@ export function useShowContext({ showId, appUser }) {
 
 const truncateNavLabel = (value) => {
   const label = String(value || 'Untitled').trim() || 'Untitled';
-  return label.length > 10 ? `${label.slice(0, 10)}..` : label;
+  return label.length > 34 ? `${label.slice(0, 34)}...` : label;
 };
 
 export function canAccessJob(ctx, jobId) {

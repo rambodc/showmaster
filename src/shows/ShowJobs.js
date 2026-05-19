@@ -6,11 +6,43 @@ import AppShell from '../components/AppShell';
 import ShowRoute from '../components/ShowRoute';
 import { UserContext } from '../App';
 import { db } from '../firebase';
-import { buildShowNavItems, useShowContext } from '../services/accessPolicy';
+import { buildShowNavItems, canAccessJob, useShowContext } from '../services/accessPolicy';
 import './showPages.css';
 
 function getShowIconUrl(show) {
   return show?.iconUrls?.md || show?.iconUrls?.sm || show?.iconUrls?.lg || show?.iconUrl || '';
+}
+
+const launcherPalettes = [
+  'linear-gradient(145deg, #38bdf8, #2563eb)',
+  'linear-gradient(145deg, #34d399, #059669)',
+  'linear-gradient(145deg, #fb7185, #e11d48)',
+  'linear-gradient(145deg, #fbbf24, #f97316)',
+  'linear-gradient(145deg, #a78bfa, #7c3aed)',
+  'linear-gradient(145deg, #2dd4bf, #0f766e)',
+  'linear-gradient(145deg, #f472b6, #be185d)',
+];
+
+function timestampValue(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.seconds === 'number') return value.seconds * 1000;
+  if (typeof value === 'number') return value;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function sortJobsByNewestCreated(a, b) {
+  const aTime = timestampValue(a?.createdAt) || timestampValue(a?.updatedAt);
+  const bTime = timestampValue(b?.createdAt) || timestampValue(b?.updatedAt);
+  if (aTime !== bTime) return bTime - aTime;
+  return String(a?.title || '').localeCompare(String(b?.title || ''));
+}
+
+function paletteForJob(job, index) {
+  const key = `${job?.type || ''}-${job?.status || ''}-${index}`;
+  const total = key.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return launcherPalettes[total % launcherPalettes.length];
 }
 
 export default function ShowJobs() {
@@ -56,6 +88,10 @@ export default function ShowJobs() {
   const navItems = useMemo(() => buildShowNavItems({ showId, jobs, ctx }), [ctx, jobs, showId]);
   const showIconUrl = getShowIconUrl(ctx.show);
   const hasToolAccess = Boolean(ctx.featureAccess?.managers || ctx.featureAccess?.jobs);
+  const visibleJobs = useMemo(
+    () => jobs.filter((job) => canAccessJob(ctx, job.id)).sort(sortJobsByNewestCreated),
+    [ctx, jobs]
+  );
 
   return (
     <ShowRoute permission="view_show">
@@ -76,18 +112,15 @@ export default function ShowJobs() {
             </div>
           </section>
 
-          <section className="show-card show-dashboard-card">
-            <div className="member-list-toolbar show-dashboard-toolbar">
-              <div>
-                <h3>Dashboard</h3>
-                <p className="info-note">Tool access appears here. Shared jobs are listed in the sidebar.</p>
+          {hasToolAccess ? (
+            <section className="show-card show-dashboard-card dashboard-section">
+              <div className="member-list-toolbar show-dashboard-toolbar">
+                <div>
+                  <h3>Management</h3>
+                  <p className="info-note">Open management tools for this show.</p>
+                </div>
               </div>
-            </div>
 
-            {loading ? <p className="info-note">Loading jobs...</p> : null}
-            {!hasToolAccess ? <p className="info-note">No dashboard tools available. Open shared jobs from the sidebar.</p> : null}
-
-            {hasToolAccess ? (
               <div className="app-launcher-grid">
                 {ctx.featureAccess?.managers ? (
                   <button type="button" className="app-launcher-item" onClick={() => navigate(`/shows/${showId}/managers`)}>
@@ -105,6 +138,35 @@ export default function ShowJobs() {
                     <span className="app-launcher-label">Job Access</span>
                   </button>
                 ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="show-card show-dashboard-card dashboard-section">
+            <div className="member-list-toolbar show-dashboard-toolbar">
+              <div>
+                <h3>Jobs</h3>
+                <p className="info-note">Open jobs shared with you.</p>
+              </div>
+            </div>
+
+            {loading ? <p className="info-note">Loading jobs...</p> : null}
+            {!loading && visibleJobs.length === 0 ? <p className="info-note">No jobs available yet.</p> : null}
+
+            {visibleJobs.length ? (
+              <div className="app-launcher-grid">
+                {visibleJobs.map((job, index) => (
+                  <button key={job.id} type="button" className="app-launcher-item" onClick={() => navigate(`/shows/${showId}/jobs/${job.id}`)}>
+                    <span className="app-launcher-icon" style={{ background: paletteForJob(job, index) }}>
+                      {job.widgetSummary?.company?.logoUrls?.sm ? (
+                        <img src={job.widgetSummary.company.logoUrls.sm} alt="" />
+                      ) : (
+                        <FiBriefcase size={28} />
+                      )}
+                    </span>
+                    <span className="app-launcher-label">{job.title || 'Untitled Job'}</span>
+                  </button>
+                ))}
               </div>
             ) : null}
           </section>

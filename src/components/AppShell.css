@@ -6,7 +6,8 @@
 }
 
 .app-shell-sidebar {
-  width: 220px;
+  width: 320px;
+  flex: 0 0 320px;
   background: rgba(255, 255, 255, 0.9);
   border-right: 1px solid #dbeafe;
   padding: 14px 10px;
@@ -16,6 +17,7 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
   backdrop-filter: blur(6px);
 }
 
@@ -23,6 +25,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.app-shell-brand-row > div {
+  min-width: 0;
 }
 
 .app-shell-show-icon {
@@ -44,7 +51,7 @@
 .app-shell-account-email {
   font-size: 0.66rem;
   color: #64748b;
-  max-width: 180px;
+  max-width: 270px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -57,7 +64,10 @@
   letter-spacing: 0.01em;
   color: #0f172a;
   padding: 4px 0;
-  word-break: break-word;
+  max-width: 270px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .app-shell-main {
@@ -91,6 +101,15 @@
   text-align: left;
   font-size: 0.88rem;
   min-height: 32px;
+  width: 100%;
+  min-width: 0;
+}
+
+.app-shell-nav-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-shell-nav-item svg {

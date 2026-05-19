@@ -178,6 +178,11 @@
   padding: 20px;
 }
 
+.dashboard-section {
+  display: grid;
+  gap: 2px;
+}
+
 .show-dashboard-toolbar {
   margin-bottom: 18px;
 }
