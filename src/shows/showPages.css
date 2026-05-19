@@ -229,6 +229,14 @@
   background: linear-gradient(145deg, #60a5fa, #4f46e5);
 }
 
+.app-launcher-icon-jobs {
+  background: linear-gradient(145deg, #34d399, #059669);
+}
+
+.app-launcher-icon-ai {
+  background: linear-gradient(145deg, #fbbf24, #f97316);
+}
+
 .app-launcher-label {
   width: 100%;
   max-width: 118px;

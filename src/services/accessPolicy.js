@@ -1,6 +1,6 @@
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { useEffect, useMemo, useState } from 'react';
-import { FiArrowLeft, FiBriefcase, FiUsers } from 'react-icons/fi';
+import { FiArrowLeft, FiBriefcase } from 'react-icons/fi';
 import { db } from '../firebase';
 
 export function useShowContext({ showId, appUser }) {
@@ -146,6 +146,22 @@ export function canAccessJob(ctx, jobId) {
   return Boolean(jobId && ctx?.jobAccess?.jobIds?.includes(jobId));
 }
 
+function timestampValue(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.seconds === 'number') return value.seconds * 1000;
+  if (typeof value === 'number') return value;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function compareJobsByNewestCreated(a, b) {
+  const aTime = timestampValue(a?.createdAt) || timestampValue(a?.updatedAt);
+  const bTime = timestampValue(b?.createdAt) || timestampValue(b?.updatedAt);
+  if (aTime !== bTime) return bTime - aTime;
+  return String(a?.title || '').localeCompare(String(b?.title || ''));
+}
+
 export function buildShowNavItems({ showId, jobs = [], ctx }) {
   const allShows = {
     label: 'All Shows',
@@ -154,48 +170,27 @@ export function buildShowNavItems({ showId, jobs = [], ctx }) {
     to: '/shows',
     matches: ['/shows', '/home'],
   };
-  const managerTools = [];
-  if (ctx?.featureAccess?.jobs) managerTools.push({
+  const dashboard = {
     label: 'Dashboard',
     icon: FiBriefcase,
     to: `/shows/${showId}/jobs`,
     matches: [`/shows/${showId}/jobs`],
-  });
-  if (ctx?.featureAccess?.managers) managerTools.push({
-    label: 'Managers',
-    icon: FiUsers,
-    to: `/shows/${showId}/managers`,
-    matches: [`/shows/${showId}/managers`],
-  });
-  const visibleJobs = (jobs || []).filter((job) => canAccessJob(ctx, job.id));
-  const grouped = visibleJobs.reduce((acc, job) => {
-    const type = String(job.type || 'General').trim() || 'General';
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(job);
-    return acc;
-  }, {});
+  };
+  const visibleJobs = (jobs || [])
+    .filter((job) => canAccessJob(ctx, job.id))
+    .sort(compareJobsByNewestCreated)
+    .map((job) => ({
+      label: truncateNavLabel(job.title),
+      icon: FiBriefcase,
+      to: `/shows/${showId}/jobs/${job.id}`,
+      matches: [`/shows/${showId}/jobs/${job.id}`],
+      subitem: true,
+    }));
 
   return [
     allShows,
-    ...(managerTools.length ? [{ type: 'group', label: 'Managers', children: managerTools }] : []),
-    {
-      type: 'group',
-      label: 'Jobs',
-      children: Object.entries(grouped)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .flatMap(([type, items]) => [
-          { type: 'folder', label: type },
-          ...items
-            .sort((a, b) => String(a.title || '').localeCompare(String(b.title || '')))
-            .map((job) => ({
-              label: truncateNavLabel(job.title),
-              icon: FiBriefcase,
-              to: `/shows/${showId}/jobs/${job.id}`,
-              matches: [`/shows/${showId}/jobs/${job.id}`],
-              subitem: true,
-            })),
-        ]),
-    },
+    dashboard,
+    ...visibleJobs,
   ];
 }
 

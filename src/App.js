@@ -30,6 +30,7 @@ import Profile from './profile/Profile';
 import Updates from './updates/Updates';
 import ShowManagers from './shows/ShowManagers';
 import ShowJobs from './shows/ShowJobs';
+import ShowJobAccess from './shows/ShowJobAccess';
 import ShowJobDetail from './shows/ShowJobDetail';
 
 // Route guard
@@ -81,6 +82,14 @@ function AppRoutes({ user }) {
           element={
             <ProtectedRoute>
               <ShowJobs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shows/:showId/jobs/access"
+          element={
+            <ProtectedRoute>
+              <ShowJobAccess />
             </ProtectedRoute>
           }
         />
