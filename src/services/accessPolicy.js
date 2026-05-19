@@ -175,6 +175,7 @@ export function buildShowNavItems({ showId, jobs = [], ctx }) {
     icon: FiBriefcase,
     to: `/shows/${showId}/jobs`,
     matches: [`/shows/${showId}/jobs`],
+    exact: true,
   };
   const visibleJobs = (jobs || [])
     .filter((job) => canAccessJob(ctx, job.id))

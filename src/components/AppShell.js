@@ -9,8 +9,10 @@ const defaultNavItems = [
   { label: 'Settings', to: '/settings', icon: FiSettings, matches: ['/settings', '/more', '/account'] },
 ];
 
-function isActive(pathname, matches) {
-  return (matches || []).some((base) => pathname === base || pathname.startsWith(`${base}/`));
+function isActive(pathname, matches, exact = false) {
+  return (matches || []).some((base) => (
+    exact ? pathname === base : pathname === base || pathname.startsWith(`${base}/`)
+  ));
 }
 
 export default function AppShell({
@@ -44,8 +46,8 @@ export default function AppShell({
   const truncate = (value, max = 34) => (value.length > max ? `${value.slice(0, max - 1)}…` : value);
   const emailLabel = email ? truncate(email, 34) : 'No email';
 
-  const renderNavItem = ({ label, to, icon: Icon, matches, variant, subitem }) => {
-    const active = isActive(pathname, matches || [to]);
+  const renderNavItem = ({ label, to, icon: Icon, matches, variant, subitem, exact }) => {
+    const active = isActive(pathname, matches || [to], exact);
     const className = ['app-shell-nav-item'];
     if (active) className.push('active');
     if (variant === 'all-shows-back') className.push('app-shell-nav-item-all-shows');
