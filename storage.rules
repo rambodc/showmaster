@@ -70,6 +70,15 @@ service firebase.storage {
         );
     }
 
+    function jobMemberPath(showId, jobId, uid) {
+      return /databases/(default)/documents/shows/$(showId)/jobs/$(jobId)/members/$(uid);
+    }
+
+    function hasJobAccess(showId, jobId) {
+      return managerCanAccessJob(showId, jobId)
+        || (signedIn() && firestore.exists(jobMemberPath(showId, jobId, request.auth.uid)));
+    }
+
     match /users/{uid}/{fileName=**} {
       allow read: if signedIn();
       allow write: if isSelf(uid);
@@ -86,6 +95,10 @@ service firebase.storage {
 
     match /shows/{showId}/jobs/{jobId}/files/{fileName=**} {
       allow read, write: if managerCanAccessJob(showId, jobId);
+    }
+
+    match /shows/{showId}/jobs/{jobId}/message-files/{fileName=**} {
+      allow read, write: if hasJobAccess(showId, jobId);
     }
 
     match /shows/{showId}/jobs/{jobId}/company-logo/{fileName=**} {

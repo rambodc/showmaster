@@ -152,7 +152,7 @@ export async function applyJobMemberAccess({ uid, showId, jobId, companyName = '
     companyName: cleanText(companyName, 240),
     role: 'company_rep',
     status: 'active',
-    responseAccess: { requests: true },
+    messageAccess: true,
     invitedBy,
     updatedAt: now,
     createdAt: now,

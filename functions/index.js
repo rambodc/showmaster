@@ -11,10 +11,8 @@ import {
   addJobCompanyContact,
   updateJobCompanyContact,
   removeJobCompanyContact,
-  createJobRequest,
-  updateJobRequest,
-  submitJobRequestResponse,
 } from './api/jobs.js';
+import { sendJobMessage } from './api/jobMessages.js';
 import { removeJobMember, updateJobMemberAccess } from './api/jobMembers.js';
 import { draftJobWithAi } from './api/aiJobs.js';
 import { acceptInvite, inviteUser, previewInvite, resendInvite } from './api/invitations.js';
@@ -36,9 +34,7 @@ export {
   addJobCompanyContact,
   updateJobCompanyContact,
   removeJobCompanyContact,
-  createJobRequest,
-  updateJobRequest,
-  submitJobRequestResponse,
+  sendJobMessage,
   removeJobMember,
   updateJobMemberAccess,
   draftJobWithAi,

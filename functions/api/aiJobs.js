@@ -12,7 +12,7 @@ function cleanText(value, max = 5000) {
 }
 
 function normalizeDraft(raw = {}) {
-  const allowedWidgets = new Set(['company', 'requests', ...RESERVED_WIDGET_KEYS]);
+  const allowedWidgets = new Set(['company', ...RESERVED_WIDGET_KEYS]);
   const widgetKeys = Array.isArray(raw.widgetKeys)
     ? raw.widgetKeys.map((key) => cleanText(key, 80)).filter((key) => allowedWidgets.has(key))
     : [];
@@ -32,25 +32,14 @@ function normalizeDraft(raw = {}) {
       notes: cleanText(raw.company?.notes, 5000),
       status: cleanText(raw.company?.status, 80) || 'draft',
     },
-    widgetKeys: [...new Set(['company', 'requests', ...widgetKeys])],
-    requests: Array.isArray(raw.requests) ? raw.requests.slice(0, 10).map((item) => ({
-      title: cleanText(item?.title, 240),
-      instructions: cleanText(item?.instructions, 5000),
-      dueDate: cleanText(item?.dueDate, 80),
-      status: cleanText(item?.status, 80) || 'open',
-      fields: Array.isArray(item?.fields) ? item.fields.slice(0, 20).map((field) => ({
-        label: cleanText(field?.label, 160),
-        type: cleanText(field?.type, 40) || 'text',
-        required: Boolean(field?.required),
-      })).filter((field) => field.label) : [],
-    })).filter((item) => item.title) : [],
+    widgetKeys: [...new Set(['company', ...widgetKeys])],
   };
 }
 
 const jobDraftSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['title', 'type', 'description', 'priority', 'company', 'widgetKeys', 'requests'],
+  required: ['title', 'type', 'description', 'priority', 'company', 'widgetKeys'],
   properties: {
     title: { type: 'string' },
     type: { type: 'string' },
@@ -74,34 +63,7 @@ const jobDraftSchema = {
     },
     widgetKeys: {
       type: 'array',
-      items: { type: 'string', enum: ['company', 'requests', ...RESERVED_WIDGET_KEYS] },
-    },
-    requests: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['title', 'instructions', 'dueDate', 'status', 'fields'],
-        properties: {
-          title: { type: 'string' },
-          instructions: { type: 'string' },
-          dueDate: { type: 'string' },
-          status: { type: 'string' },
-          fields: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['label', 'type', 'required'],
-              properties: {
-                label: { type: 'string' },
-                type: { type: 'string', enum: ['text', 'number', 'date', 'email', 'file', 'yes_no'] },
-                required: { type: 'boolean' },
-              },
-            },
-          },
-        },
-      },
+      items: { type: 'string', enum: ['company', ...RESERVED_WIDGET_KEYS] },
     },
   },
 };
@@ -134,8 +96,8 @@ export const draftJobWithAi = onCall({
         content: [
           'You draft operational show jobs for managers.',
           'Return only the structured job draft.',
-          'Use the generic requests widget for member/company-rep responses.',
-          'Keep request instructions concrete and actionable.',
+          'Focus on job basics and company details.',
+          'Do not create request widgets.',
         ].join(' '),
       },
       {

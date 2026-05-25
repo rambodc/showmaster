@@ -15,20 +15,6 @@ function cleanStatus(value, fallback = 'draft') {
   return status || fallback;
 }
 
-function cleanRequest(input = {}) {
-  return {
-    title: cleanText(input.title, 240),
-    instructions: cleanText(input.instructions, 5000),
-    dueDate: cleanText(input.dueDate, 80),
-    status: cleanStatus(input.status, 'open'),
-    fields: Array.isArray(input.fields) ? input.fields.slice(0, 20).map((field) => ({
-      label: cleanText(field?.label, 160),
-      type: cleanText(field?.type, 40) || 'text',
-      required: Boolean(field?.required),
-    })).filter((field) => field.label) : [],
-  };
-}
-
 function cleanCompany(input = {}) {
   return {
     name: cleanText(input.name, 240),
@@ -115,30 +101,6 @@ export const createJob = onCall({ region: 'us-central1' }, async (request) => {
         name: company.name,
         status: company.status,
         logoUrls: company.logoUrls,
-      },
-    }, { merge: true });
-  }
-
-  const requests = Array.isArray(request.data?.requests) ? request.data.requests.slice(0, 10) : [];
-  requests.forEach((item) => {
-    const clean = cleanRequest(item);
-    if (!clean.title) return;
-    const requestRef = jobRef.collection('widgets').doc('requests').collection('records').doc();
-    batch.set(requestRef, {
-      ...clean,
-      responseCount: 0,
-      createdBy: callerUid,
-      updatedBy: callerUid,
-      createdAt: now,
-      updatedAt: now,
-    });
-  });
-  if (requests.length) {
-    batch.set(jobRef, {
-      'widgetConfig.requests': { enabled: true, status: 'active' },
-      'widgetSummary.requests': {
-        openCount: requests.length,
-        responseCount: 0,
       },
     }, { merge: true });
   }
@@ -309,134 +271,6 @@ export const removeJobCompanyContact = onCall({ region: 'us-central1' }, async (
     .collection('widgets').doc('company')
     .collection('contacts').doc(contactId)
     .delete();
-
-  return { ok: true };
-});
-
-export const createJobRequest = onCall({ region: 'us-central1' }, async (request) => {
-  const callerUid = assertAuth(request);
-  const showId = cleanText(request.data?.showId, 160);
-  const jobId = cleanText(request.data?.jobId, 160);
-
-  if (!showId || !jobId) {
-    throw new HttpsError('invalid-argument', 'showId and jobId are required.');
-  }
-
-  await assertCanManageJob(callerUid, showId, jobId);
-  const clean = cleanRequest(request.data?.request || {});
-  if (!clean.title) throw new HttpsError('invalid-argument', 'Request title is required.');
-
-  const now = FieldValue.serverTimestamp();
-  const jobRef = db.collection('shows').doc(showId).collection('jobs').doc(jobId);
-  const requestRef = jobRef.collection('widgets').doc('requests').collection('records').doc();
-  const batch = db.batch();
-  batch.set(requestRef, {
-    ...clean,
-    responseCount: 0,
-    createdBy: callerUid,
-    updatedBy: callerUid,
-    createdAt: now,
-    updatedAt: now,
-  });
-  batch.set(jobRef, {
-    'widgetConfig.requests': { enabled: true, status: 'active' },
-    'widgetSummary.requests.openCount': FieldValue.increment(1),
-    updatedBy: callerUid,
-    updatedAt: now,
-  }, { merge: true });
-  await batch.commit();
-  return { ok: true, requestId: requestRef.id };
-});
-
-export const updateJobRequest = onCall({ region: 'us-central1' }, async (request) => {
-  const callerUid = assertAuth(request);
-  const showId = cleanText(request.data?.showId, 160);
-  const jobId = cleanText(request.data?.jobId, 160);
-  const requestId = cleanText(request.data?.requestId, 160);
-
-  if (!showId || !jobId || !requestId) {
-    throw new HttpsError('invalid-argument', 'showId, jobId, and requestId are required.');
-  }
-
-  await assertCanManageJob(callerUid, showId, jobId);
-  const clean = cleanRequest(request.data?.request || {});
-  if (!clean.title) throw new HttpsError('invalid-argument', 'Request title is required.');
-
-  await db.collection('shows').doc(showId)
-    .collection('jobs').doc(jobId)
-    .collection('widgets').doc('requests')
-    .collection('records').doc(requestId)
-    .set({
-      ...clean,
-      updatedBy: callerUid,
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-
-  return { ok: true };
-});
-
-export const submitJobRequestResponse = onCall({ region: 'us-central1' }, async (request) => {
-  const callerUid = assertAuth(request);
-  const showId = cleanText(request.data?.showId, 160);
-  const jobId = cleanText(request.data?.jobId, 160);
-  const requestId = cleanText(request.data?.requestId, 160);
-
-  if (!showId || !jobId || !requestId) {
-    throw new HttpsError('invalid-argument', 'showId, jobId, and requestId are required.');
-  }
-
-  const memberSnap = await db.collection('shows').doc(showId)
-    .collection('jobs').doc(jobId)
-    .collection('members').doc(callerUid)
-    .get();
-  if (!memberSnap.exists) {
-    throw new HttpsError('permission-denied', 'Only assigned job members can respond.');
-  }
-
-  const message = cleanText(request.data?.message, 5000);
-  const fieldValues = request.data?.fieldValues && typeof request.data.fieldValues === 'object'
-    ? Object.fromEntries(Object.entries(request.data.fieldValues).slice(0, 50).map(([key, value]) => [
-      cleanText(key, 120),
-      cleanText(value, 2000),
-    ]).filter(([key]) => key))
-    : {};
-
-  if (!message && !Object.keys(fieldValues).length) {
-    throw new HttpsError('invalid-argument', 'Response message or field values are required.');
-  }
-
-  const now = FieldValue.serverTimestamp();
-  const requestRef = db.collection('shows').doc(showId)
-    .collection('jobs').doc(jobId)
-    .collection('widgets').doc('requests')
-    .collection('records').doc(requestId);
-  const responseRef = requestRef.collection('responses').doc(callerUid);
-  const existing = await responseRef.get();
-  const member = memberSnap.data() || {};
-  const batch = db.batch();
-  batch.set(responseRef, {
-    uid: callerUid,
-    email: member.email || null,
-    displayName: member.displayName || null,
-    companyName: member.companyName || '',
-    message,
-    fieldValues,
-    status: cleanStatus(request.data?.status, 'submitted'),
-    updatedBy: callerUid,
-    updatedAt: now,
-    ...(existing.exists ? {} : { createdBy: callerUid, createdAt: now }),
-  }, { merge: true });
-  if (!existing.exists) {
-    batch.set(requestRef, {
-      responseCount: FieldValue.increment(1),
-      updatedAt: now,
-    }, { merge: true });
-    batch.set(db.collection('shows').doc(showId).collection('jobs').doc(jobId), {
-      'widgetSummary.requests.responseCount': FieldValue.increment(1),
-      updatedAt: now,
-    }, { merge: true });
-  }
-  await batch.commit();
 
   return { ok: true };
 });

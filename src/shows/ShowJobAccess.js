@@ -28,7 +28,6 @@ export default function ShowJobAccess() {
   const [drafting, setDrafting] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiDraft, setAiDraft] = useState(null);
-  const [aiRequestsText, setAiRequestsText] = useState('');
   const [form, setForm] = useState({ title: '', description: '', type: 'general', priority: 'normal' });
 
   useEffect(() => {
@@ -92,7 +91,6 @@ export default function ShowJobAccess() {
       });
       const draft = result.data?.draft || null;
       setAiDraft(draft);
-      setAiRequestsText((draft?.requests || []).map((item) => `${item.title} | ${item.instructions}`).join('\n'));
       notify('AI draft ready for review.', 'success');
     } catch (err) {
       notify(err?.message || 'Failed to draft job with AI.', 'error');
@@ -105,19 +103,6 @@ export default function ShowJobAccess() {
     if (!aiDraft?.title?.trim()) return;
     setCreating(true);
     try {
-      const requests = aiRequestsText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const [title, ...rest] = line.split('|');
-          return {
-            title: title.trim(),
-            instructions: rest.join('|').trim(),
-            status: 'open',
-            fields: [],
-          };
-        });
       const fn = httpsCallable(functions, 'createJob');
       const result = await fn({
         showId,
@@ -126,12 +111,10 @@ export default function ShowJobAccess() {
         type: aiDraft.type,
         priority: aiDraft.priority,
         company: aiDraft.company,
-        requests,
       });
       setAiDrawerOpen(false);
       setAiPrompt('');
       setAiDraft(null);
-      setAiRequestsText('');
       notify('AI draft job created.', 'success');
       if (result.data?.jobId) navigate(`/shows/${showId}/jobs/${result.data.jobId}`);
     } catch (err) {
@@ -214,7 +197,7 @@ export default function ShowJobAccess() {
 
         <RightDrawer open={aiDrawerOpen} title="AI Draft Job" eyebrow="Job Access" onClose={() => setAiDrawerOpen(false)}>
           <form className="form-grid" onSubmit={draftJob}>
-            <textarea rows={5} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="Describe the job, company, and what the company rep needs to respond to." required />
+            <textarea rows={5} value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} placeholder="Describe the job and company details." required />
             <button className="show-btn" type="submit" disabled={drafting || !aiPrompt.trim()}>
               <FiCpu /> {drafting ? 'Drafting...' : 'Draft Job'}
             </button>
@@ -233,7 +216,6 @@ export default function ShowJobAccess() {
               <textarea rows={3} value={aiDraft.description || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" />
               <input value={aiDraft.company?.name || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, company: { ...(prev.company || {}), name: e.target.value } }))} placeholder="Company name" />
               <input value={aiDraft.company?.email || ''} onChange={(e) => setAiDraft((prev) => ({ ...prev, company: { ...(prev.company || {}), email: e.target.value } }))} placeholder="Company email" />
-              <textarea rows={5} value={aiRequestsText} onChange={(e) => setAiRequestsText(e.target.value)} placeholder="Requests, one per line: Title | Instructions" />
               <div className="drawer-actions">
                 <button className="show-btn-outline" type="button" onClick={() => setAiDraft(null)}>Clear Draft</button>
                 <button className="show-btn" type="button" onClick={createDraftJob} disabled={creating || !aiDraft.title?.trim()}>

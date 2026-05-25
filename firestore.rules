@@ -140,6 +140,11 @@ service cloud.firestore {
           allow write: if false;
         }
 
+        match /messages/{messageId} {
+          allow read: if hasJobAccess(showId, jobId);
+          allow write: if false;
+        }
+
         match /widgets/{widgetId} {
           allow read: if hasJobAccess(showId, jobId);
           allow write: if managerCanAccessJob(showId, jobId);
@@ -152,46 +157,12 @@ service cloud.firestore {
           match /records/{recordId} {
             allow read: if hasJobAccess(showId, jobId);
             allow write: if managerCanAccessJob(showId, jobId);
-
-            match /responses/{responseId} {
-              allow read: if managerCanAccessJob(showId, jobId) || isSelf(responseId);
-              allow create: if widgetId == 'requests'
-                && isSelf(responseId)
-                && signedIn()
-                && exists(jobMemberPath(showId, jobId, request.auth.uid))
-                && request.resource.data.uid == request.auth.uid
-                && request.resource.data.keys().hasOnly([
-                  'uid',
-                  'email',
-                  'displayName',
-                  'companyName',
-                  'message',
-                  'fieldValues',
-                  'status',
-                  'updatedBy',
-                  'updatedAt',
-                  'createdBy',
-                  'createdAt'
-                ]);
-              allow update: if widgetId == 'requests'
-                && isSelf(responseId)
-                && signedIn()
-                && exists(jobMemberPath(showId, jobId, request.auth.uid))
-                && request.resource.data.uid == request.auth.uid
-                && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-                  'uid',
-                  'email',
-                  'createdBy',
-                  'createdAt'
-                ]);
-              allow delete: if false;
-            }
           }
         }
 
         match /files/{fileId} {
           allow read: if hasJobAccess(showId, jobId);
-          allow write: if isShowAdmin(showId);
+          allow write: if false;
         }
 
         match /updates/{updateId} {

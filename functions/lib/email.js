@@ -142,6 +142,36 @@ const templates = {
       }),
     };
   },
+
+  jobMessageNotification(data = {}) {
+    const sender = data.senderName || 'A Showmaster user';
+    const jobTitle = data.jobTitle || 'a job';
+    const showName = data.showName || 'Showmaster';
+    const title = `New message on ${jobTitle}`;
+    const preview = String(data.messageBody || '').trim() || 'A file was shared in this job.';
+    const body = [
+      `<p style="margin:0 0 14px;"><strong>${escapeHtml(sender)}</strong> sent a message in ${escapeHtml(showName)}.</p>`,
+      `<p style="margin:0 0 14px;color:#334155;">${escapeHtml(preview.slice(0, 600))}</p>`,
+      '<p style="margin:0;">Open the job in Showmaster to reply or view attachments.</p>',
+    ].join('');
+    return {
+      subject: title,
+      text: [
+        `${sender} sent a message on ${jobTitle}.`,
+        '',
+        preview,
+        '',
+        'Open the job:',
+        data.jobUrl || '',
+      ].join('\n'),
+      html: shell({
+        title,
+        body,
+        actionLabel: 'Open job',
+        actionUrl: data.jobUrl,
+      }),
+    };
+  },
 };
 
 export async function sendEmail({ to, subject, text, html, replyTo }) {
