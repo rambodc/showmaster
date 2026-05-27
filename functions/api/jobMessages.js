@@ -151,18 +151,29 @@ async function buildImageAttachment({ bucket, showId, jobId, batchId, upload, bu
     saveFile({ bucket, path: thumbnailPath, buffer: thumb, contentType: 'image/jpeg', cacheControl: 'private,max-age=86400' }),
   ]);
 
+  const cid = `${upload.fileId}@showmaster-message`;
   return {
-    fileId: upload.fileId,
-    kind: 'image',
-    fileName,
-    contentType: 'image/jpeg',
-    size: full.data.length,
-    storagePath,
-    downloadUrl,
-    thumbnailPath,
-    thumbnailUrl,
-    width: full.info.width || null,
-    height: full.info.height || null,
+    attachment: {
+      fileId: upload.fileId,
+      kind: 'image',
+      fileName,
+      contentType: 'image/jpeg',
+      size: full.data.length,
+      storagePath,
+      downloadUrl,
+      thumbnailPath,
+      thumbnailUrl,
+      width: full.info.width || null,
+      height: full.info.height || null,
+    },
+    emailAttachment: {
+      fileId: upload.fileId,
+      filename: `thumb-${fileName}`,
+      content: thumb,
+      contentType: 'image/jpeg',
+      cid,
+    },
+    emailCid: cid,
   };
 }
 
@@ -182,18 +193,34 @@ async function buildPdfAttachment({ bucket, showId, jobId, batchId, upload, buff
   });
 
   return {
-    fileId: upload.fileId,
-    kind: 'pdf',
-    fileName,
-    contentType: PDF_TYPE,
-    size: buffer.length,
-    storagePath,
-    downloadUrl,
+    attachment: {
+      fileId: upload.fileId,
+      kind: 'pdf',
+      fileName,
+      contentType: PDF_TYPE,
+      size: buffer.length,
+      storagePath,
+      downloadUrl,
+    },
+  };
+}
+
+function unpackProcessedAttachments(results) {
+  return {
+    attachments: results.map((item) => item.attachment).filter(Boolean),
+    emailAttachments: results.map((item) => item.emailAttachment).filter(Boolean),
+    emailCidByFileId: new Map(
+      results
+        .filter((item) => item.attachment?.fileId && item.emailCid)
+        .map((item) => [item.attachment.fileId, item.emailCid])
+    ),
   };
 }
 
 async function saveUploadedAttachments({ showId, jobId, batchId, uploads }) {
-  if (!uploads.length) return [];
+  if (!uploads.length) {
+    return { attachments: [], emailAttachments: [], emailCidByFileId: new Map() };
+  }
 
   const totalBytes = uploads.reduce((sum, item) => sum + item.size, 0);
   if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
@@ -201,7 +228,7 @@ async function saveUploadedAttachments({ showId, jobId, batchId, uploads }) {
   }
 
   const bucket = getStorage().bucket();
-  return Promise.all(uploads.map(async (upload) => {
+  const results = await Promise.all(uploads.map(async (upload) => {
     const buffer = Buffer.from(upload.dataBase64, 'base64');
     if (!buffer.length || buffer.length > MAX_ATTACHMENT_BYTES) {
       throw new HttpsError('invalid-argument', 'Attachment upload is invalid or too large.');
@@ -215,6 +242,8 @@ async function saveUploadedAttachments({ showId, jobId, batchId, uploads }) {
     }
     throw new HttpsError('invalid-argument', 'Only image and PDF attachments are allowed.');
   }));
+
+  return unpackProcessedAttachments(results);
 }
 
 async function userSummary(uid) {
@@ -284,7 +313,7 @@ async function companyRecipients(showId, jobId) {
   return [...recipients.entries()].map(([email, name]) => ({ email, name }));
 }
 
-async function notifyRecipients({ recipients, senderName, showName, jobTitle, messageBody, jobUrl, attachments }) {
+async function notifyRecipients({ recipients, senderName, showName, jobTitle, messageBody, jobUrl, attachments, emailAttachments }) {
   let sentCount = 0;
   let failedCount = 0;
   const results = [];
@@ -301,6 +330,7 @@ async function notifyRecipients({ recipients, senderName, showName, jobTitle, me
           messageBody,
           jobUrl,
           attachments,
+          emailInlineAttachments: emailAttachments,
         },
       });
       sentCount += 1;
@@ -312,6 +342,13 @@ async function notifyRecipients({ recipients, senderName, showName, jobTitle, me
   }));
 
   return { sentCount, failedCount, recipients: results };
+}
+
+function withEmailCids(attachments, emailCidByFileId) {
+  return attachments.map((attachment) => {
+    const emailCid = emailCidByFileId.get(attachment.fileId);
+    return emailCid ? { ...attachment, emailCid } : attachment;
+  });
 }
 
 export const sendJobMessage = onCall({
@@ -355,11 +392,13 @@ export const sendJobMessage = onCall({
   const now = FieldValue.serverTimestamp();
   const messageRef = db.collection('shows').doc(showId).collection('jobs').doc(jobId).collection('messages').doc();
   const batchId = cleanText(request.data?.batchId, 160) || messageRef.id;
-  const uploadedAttachments = await saveUploadedAttachments({ showId, jobId, batchId, uploads });
-  const cleanAttachments = [...attachments, ...uploadedAttachments].map((attachment) => ({
+  const uploaded = await saveUploadedAttachments({ showId, jobId, batchId, uploads });
+  const cleanAttachments = [...attachments, ...uploaded.attachments].map((attachment) => ({
     ...attachment,
     fileId: attachment.fileId || db.collection('_').doc().id,
   }));
+  const emailAttachments = uploaded.emailAttachments || [];
+  const emailTemplateAttachments = withEmailCids(cleanAttachments, uploaded.emailCidByFileId || new Map());
 
   const recipients = access.senderRole === 'manager'
     ? await companyRecipients(showId, jobId)
@@ -373,7 +412,8 @@ export const sendJobMessage = onCall({
       jobTitle: job.title || 'Job',
       messageBody: body,
       jobUrl,
-      attachments: cleanAttachments,
+      attachments: emailTemplateAttachments,
+      emailAttachments,
     })
     : { sentCount: 0, failedCount: 0, recipients: [] };
 

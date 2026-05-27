@@ -150,14 +150,15 @@ const templates = {
     const title = `New message on ${jobTitle}`;
     const preview = String(data.messageBody || '').trim() || 'A file was shared in this job.';
     const attachments = Array.isArray(data.attachments) ? data.attachments : [];
-    const imageAttachments = attachments.filter((attachment) => attachment?.kind === 'image' && attachment.thumbnailUrl && attachment.downloadUrl);
+    const imageAttachments = attachments.filter((attachment) => attachment?.kind === 'image' && attachment.emailCid && attachment.downloadUrl);
     const linkedAttachments = attachments.filter((attachment) => attachment?.downloadUrl);
+    const inlineAttachments = Array.isArray(data.emailInlineAttachments) ? data.emailInlineAttachments : [];
     const attachmentHtml = linkedAttachments.length ? [
       '<div style="margin:18px 0 0;">',
       '<p style="margin:0 0 10px;font-weight:700;color:#0f172a;">Attachments</p>',
       imageAttachments.length ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px;">${imageAttachments.map((attachment) => (
         `<a href="${escapeHtml(attachment.downloadUrl)}" style="display:inline-block;text-decoration:none;color:#0369a1;">
-          <img src="${escapeHtml(attachment.thumbnailUrl)}" alt="${escapeHtml(attachment.fileName || 'Image attachment')}" width="160" style="display:block;max-width:160px;height:auto;border-radius:8px;border:1px solid #dbeafe;margin:0 0 4px;" />
+          <img src="cid:${escapeHtml(attachment.emailCid)}" alt="${escapeHtml(attachment.fileName || 'Image attachment')}" width="160" style="display:block;max-width:160px;height:auto;border-radius:8px;border:1px solid #dbeafe;margin:0 0 4px;" />
           <span style="display:block;font-size:12px;line-height:1.35;color:#0369a1;">${escapeHtml(attachment.fileName || 'Image attachment')}</span>
         </a>`
       )).join('')}</div>` : '',
@@ -198,11 +199,12 @@ const templates = {
         actionLabel: 'Open job',
         actionUrl: data.jobUrl,
       }),
+      attachments: inlineAttachments,
     };
   },
 };
 
-export async function sendEmail({ to, subject, text, html, replyTo }) {
+export async function sendEmail({ to, subject, text, html, replyTo, attachments }) {
   const recipient = cleanEmail(to);
   if (!recipient || !subject || (!text && !html)) {
     throw new HttpsError('invalid-argument', 'Email recipient, subject, and body are required.');
@@ -227,6 +229,7 @@ export async function sendEmail({ to, subject, text, html, replyTo }) {
       text,
       html,
       replyTo,
+      attachments: Array.isArray(attachments) ? attachments : undefined,
     });
     return { messageId: info.messageId || null };
   } catch (err) {
