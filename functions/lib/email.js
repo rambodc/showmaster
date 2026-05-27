@@ -43,7 +43,7 @@ function getSmtpConfig() {
   };
 }
 
-function shell({ title, body, actionLabel, actionUrl, footer }) {
+function shell({ title, body, actionLabel, actionUrl, bodyAfterAction = '', footer }) {
   const action = actionUrl && actionLabel
     ? `<p style="margin:24px 0;"><a href="${escapeHtml(actionUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;border-radius:8px;padding:12px 18px;font-weight:700;">${escapeHtml(actionLabel)}</a></p>`
     : '';
@@ -56,6 +56,7 @@ function shell({ title, body, actionLabel, actionUrl, footer }) {
         <h1 style="margin:0 0 16px;font-size:24px;line-height:1.25;color:#0f172a;">${escapeHtml(title)}</h1>
         <div style="font-size:16px;line-height:1.55;color:#334155;">${body}</div>
         ${action}
+        ${bodyAfterAction ? `<div style="font-size:16px;line-height:1.55;color:#334155;">${bodyAfterAction}</div>` : ''}
         <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#64748b;">${escapeHtml(footer || 'This message was sent by Showmaster.')}</p>
       </div>
     </div>
@@ -172,7 +173,6 @@ const templates = {
     const body = [
       `<p style="margin:0 0 14px;"><strong>${escapeHtml(sender)}</strong> sent a message in ${escapeHtml(showName)}.</p>`,
       `<p style="margin:0 0 14px;color:#334155;">${escapeHtml(preview.slice(0, 600))}</p>`,
-      attachmentHtml,
       '<p style="margin:0;">Open the job in Showmaster to reply or view attachments.</p>',
     ].join('');
     const attachmentText = linkedAttachments.length
@@ -198,6 +198,7 @@ const templates = {
         body,
         actionLabel: 'Open job',
         actionUrl: data.jobUrl,
+        bodyAfterAction: attachmentHtml,
       }),
       attachments: inlineAttachments,
     };
