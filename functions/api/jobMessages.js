@@ -1,12 +1,15 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { getStorage } from 'firebase-admin/storage';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { assertAuth, canAccessJob, db, FieldValue, HttpsError } from '../lib/firebase.js';
 import { EMAIL_SECRETS, sendTemplatedEmail } from '../lib/email.js';
 
 const MAX_ATTACHMENT_COUNT = 8;
 const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 16 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const PDF_TYPE = 'application/pdf';
 
 function cleanText(value, max = 5000) {
   return String(value || '').trim().slice(0, max);
@@ -42,22 +45,42 @@ function cleanAttachment(input = {}) {
   if (!fileName || !storagePath || !downloadUrl) return null;
   return {
     fileId: cleanText(input.fileId, 160) || null,
+    kind: input.kind === 'image' ? 'image' : (input.kind === 'pdf' ? 'pdf' : 'file'),
     fileName,
     contentType: cleanText(input.contentType, 120) || 'application/octet-stream',
     size: Math.max(0, Number(input.size || 0)),
     storagePath,
     downloadUrl,
+    thumbnailPath: cleanText(input.thumbnailPath, 1000) || null,
+    thumbnailUrl: cleanText(input.thumbnailUrl, 2000) || null,
+    width: Math.max(0, Number(input.width || 0)) || null,
+    height: Math.max(0, Number(input.height || 0)) || null,
   };
+}
+
+function inferUploadContentType(fileName, contentType) {
+  const type = cleanText(contentType, 120).toLowerCase();
+  if (ALLOWED_IMAGE_TYPES.has(type) || type === PDF_TYPE) return type;
+  const name = cleanText(fileName, 240).toLowerCase();
+  if (/\.(jpe?g)$/.test(name)) return 'image/jpeg';
+  if (/\.png$/.test(name)) return 'image/png';
+  if (/\.webp$/.test(name)) return 'image/webp';
+  if (/\.gif$/.test(name)) return 'image/gif';
+  if (/\.pdf$/.test(name)) return PDF_TYPE;
+  return type || 'application/octet-stream';
 }
 
 function cleanUpload(input = {}) {
   const fileName = cleanText(input.fileName, 240);
-  const contentType = cleanText(input.contentType, 120) || 'application/octet-stream';
+  const contentType = inferUploadContentType(fileName, input.contentType);
   const dataBase64 = cleanText(input.dataBase64, MAX_ATTACHMENT_BYTES * 2);
   const size = Math.max(0, Number(input.size || 0));
   if (!fileName || !dataBase64) return null;
   if (size > MAX_ATTACHMENT_BYTES) {
     throw new HttpsError('invalid-argument', 'Each attachment must be 8 MB or smaller.');
+  }
+  if (!ALLOWED_IMAGE_TYPES.has(contentType) && contentType !== PDF_TYPE) {
+    throw new HttpsError('invalid-argument', 'Only image and PDF attachments are allowed.');
   }
   return {
     fileId: cleanText(input.fileId, 160) || randomUUID(),
@@ -73,8 +96,100 @@ function cleanFileName(value) {
   return name || 'attachment';
 }
 
+function fileNameWithExtension(fileName, extension) {
+  const safe = cleanFileName(fileName);
+  const base = safe.includes('.') ? safe.slice(0, safe.lastIndexOf('.')) : safe;
+  return `${base || 'attachment'}.${extension}`;
+}
+
 function downloadUrlFor(bucketName, filePath, token) {
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
+}
+
+function isPdfBuffer(buffer) {
+  return buffer.subarray(0, 5).toString('utf8') === '%PDF-';
+}
+
+async function saveFile({ bucket, path, buffer, contentType, cacheControl = 'private,max-age=3600' }) {
+  const token = randomUUID();
+  await bucket.file(path).save(buffer, {
+    resumable: false,
+    metadata: {
+      contentType,
+      cacheControl,
+      metadata: { firebaseStorageDownloadTokens: token },
+    },
+  });
+  return downloadUrlFor(bucket.name, path, token);
+}
+
+async function buildImageAttachment({ bucket, showId, jobId, batchId, upload, buffer }) {
+  let image;
+  try {
+    image = sharp(buffer, { animated: false, limitInputPixels: 40_000_000 }).rotate();
+    await image.metadata();
+  } catch (err) {
+    throw new HttpsError('invalid-argument', 'Attachment image is invalid or unsupported.');
+  }
+
+  const full = await image
+    .clone()
+    .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true });
+  const thumb = await image
+    .clone()
+    .resize({ width: 480, height: 480, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 82, mozjpeg: true })
+    .toBuffer();
+
+  const fileName = fileNameWithExtension(upload.fileName, 'jpg');
+  const storagePath = `shows/${showId}/jobs/${jobId}/message-files/${batchId}/${upload.fileId}-${fileName}`;
+  const thumbnailPath = `shows/${showId}/jobs/${jobId}/message-files/${batchId}/${upload.fileId}-thumb-${fileName}`;
+  const [downloadUrl, thumbnailUrl] = await Promise.all([
+    saveFile({ bucket, path: storagePath, buffer: full.data, contentType: 'image/jpeg', cacheControl: 'private,max-age=86400' }),
+    saveFile({ bucket, path: thumbnailPath, buffer: thumb, contentType: 'image/jpeg', cacheControl: 'private,max-age=86400' }),
+  ]);
+
+  return {
+    fileId: upload.fileId,
+    kind: 'image',
+    fileName,
+    contentType: 'image/jpeg',
+    size: full.data.length,
+    storagePath,
+    downloadUrl,
+    thumbnailPath,
+    thumbnailUrl,
+    width: full.info.width || null,
+    height: full.info.height || null,
+  };
+}
+
+async function buildPdfAttachment({ bucket, showId, jobId, batchId, upload, buffer }) {
+  if (!isPdfBuffer(buffer)) {
+    throw new HttpsError('invalid-argument', 'Attachment PDF is invalid.');
+  }
+
+  const fileName = fileNameWithExtension(upload.fileName, 'pdf');
+  const storagePath = `shows/${showId}/jobs/${jobId}/message-files/${batchId}/${upload.fileId}-${fileName}`;
+  const downloadUrl = await saveFile({
+    bucket,
+    path: storagePath,
+    buffer,
+    contentType: PDF_TYPE,
+    cacheControl: 'private,max-age=3600',
+  });
+
+  return {
+    fileId: upload.fileId,
+    kind: 'pdf',
+    fileName,
+    contentType: PDF_TYPE,
+    size: buffer.length,
+    storagePath,
+    downloadUrl,
+  };
 }
 
 async function saveUploadedAttachments({ showId, jobId, batchId, uploads }) {
@@ -92,26 +207,13 @@ async function saveUploadedAttachments({ showId, jobId, batchId, uploads }) {
       throw new HttpsError('invalid-argument', 'Attachment upload is invalid or too large.');
     }
 
-    const token = randomUUID();
-    const safeName = cleanFileName(upload.fileName);
-    const storagePath = `shows/${showId}/jobs/${jobId}/message-files/${batchId}/${upload.fileId}-${safeName}`;
-    await bucket.file(storagePath).save(buffer, {
-      resumable: false,
-      metadata: {
-        contentType: upload.contentType,
-        cacheControl: 'private,max-age=3600',
-        metadata: { firebaseStorageDownloadTokens: token },
-      },
-    });
-
-    return {
-      fileId: upload.fileId,
-      fileName: upload.fileName,
-      contentType: upload.contentType,
-      size: buffer.length,
-      storagePath,
-      downloadUrl: downloadUrlFor(bucket.name, storagePath, token),
-    };
+    if (ALLOWED_IMAGE_TYPES.has(upload.contentType)) {
+      return buildImageAttachment({ bucket, showId, jobId, batchId, upload, buffer });
+    }
+    if (upload.contentType === PDF_TYPE) {
+      return buildPdfAttachment({ bucket, showId, jobId, batchId, upload, buffer });
+    }
+    throw new HttpsError('invalid-argument', 'Only image and PDF attachments are allowed.');
   }));
 }
 
@@ -182,7 +284,7 @@ async function companyRecipients(showId, jobId) {
   return [...recipients.entries()].map(([email, name]) => ({ email, name }));
 }
 
-async function notifyRecipients({ recipients, senderName, showName, jobTitle, messageBody, jobUrl }) {
+async function notifyRecipients({ recipients, senderName, showName, jobTitle, messageBody, jobUrl, attachments }) {
   let sentCount = 0;
   let failedCount = 0;
   const results = [];
@@ -198,6 +300,7 @@ async function notifyRecipients({ recipients, senderName, showName, jobTitle, me
           jobTitle,
           messageBody,
           jobUrl,
+          attachments,
         },
       });
       sentCount += 1;
@@ -270,6 +373,7 @@ export const sendJobMessage = onCall({
       jobTitle: job.title || 'Job',
       messageBody: body,
       jobUrl,
+      attachments: cleanAttachments,
     })
     : { sentCount: 0, failedCount: 0, recipients: [] };
 

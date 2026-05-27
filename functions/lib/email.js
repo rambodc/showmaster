@@ -149,17 +149,45 @@ const templates = {
     const showName = data.showName || 'Showmaster';
     const title = `New message on ${jobTitle}`;
     const preview = String(data.messageBody || '').trim() || 'A file was shared in this job.';
+    const attachments = Array.isArray(data.attachments) ? data.attachments : [];
+    const imageAttachments = attachments.filter((attachment) => attachment?.kind === 'image' && attachment.thumbnailUrl && attachment.downloadUrl);
+    const linkedAttachments = attachments.filter((attachment) => attachment?.downloadUrl);
+    const attachmentHtml = linkedAttachments.length ? [
+      '<div style="margin:18px 0 0;">',
+      '<p style="margin:0 0 10px;font-weight:700;color:#0f172a;">Attachments</p>',
+      imageAttachments.length ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin:0 0 12px;">${imageAttachments.map((attachment) => (
+        `<a href="${escapeHtml(attachment.downloadUrl)}" style="display:inline-block;text-decoration:none;color:#0369a1;">
+          <img src="${escapeHtml(attachment.thumbnailUrl)}" alt="${escapeHtml(attachment.fileName || 'Image attachment')}" width="160" style="display:block;max-width:160px;height:auto;border-radius:8px;border:1px solid #dbeafe;margin:0 0 4px;" />
+          <span style="display:block;font-size:12px;line-height:1.35;color:#0369a1;">${escapeHtml(attachment.fileName || 'Image attachment')}</span>
+        </a>`
+      )).join('')}</div>` : '',
+      '<ul style="margin:0;padding-left:18px;">',
+      linkedAttachments.map((attachment) => (
+        `<li style="margin:0 0 6px;"><a href="${escapeHtml(attachment.downloadUrl)}" style="color:#0369a1;">${escapeHtml(attachment.fileName || 'Attachment')}</a></li>`
+      )).join(''),
+      '</ul>',
+      '</div>',
+    ].join('') : '';
     const body = [
       `<p style="margin:0 0 14px;"><strong>${escapeHtml(sender)}</strong> sent a message in ${escapeHtml(showName)}.</p>`,
       `<p style="margin:0 0 14px;color:#334155;">${escapeHtml(preview.slice(0, 600))}</p>`,
+      attachmentHtml,
       '<p style="margin:0;">Open the job in Showmaster to reply or view attachments.</p>',
     ].join('');
+    const attachmentText = linkedAttachments.length
+      ? [
+        '',
+        'Attachments:',
+        ...linkedAttachments.map((attachment) => `${attachment.fileName || 'Attachment'}: ${attachment.downloadUrl}`),
+      ].join('\n')
+      : '';
     return {
       subject: title,
       text: [
         `${sender} sent a message on ${jobTitle}.`,
         '',
         preview,
+        attachmentText,
         '',
         'Open the job:',
         data.jobUrl || '',

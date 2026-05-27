@@ -720,6 +720,36 @@
   text-decoration: none;
 }
 
+.job-image-attachment {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(180px, 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  background: #fff;
+  color: #0369a1;
+  font-size: 0.78rem;
+  font-weight: 750;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.job-image-attachment img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #e0f2fe;
+}
+
+.job-image-attachment span {
+  padding: 0 8px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .job-message-composer {
   display: grid;
   gap: 10px;

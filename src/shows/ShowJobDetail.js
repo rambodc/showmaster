@@ -7,6 +7,7 @@ import {
   FiBriefcase,
   FiDownload,
   FiEdit3,
+  FiFileText,
   FiMail,
   FiPaperclip,
   FiPlus,
@@ -51,6 +52,15 @@ const emptyContact = {
 
 const MAX_MESSAGE_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 const MAX_MESSAGE_ATTACHMENT_TOTAL_BYTES = 16 * 1024 * 1024;
+const MAX_MESSAGE_ATTACHMENT_COUNT = 8;
+const ALLOWED_MESSAGE_FILE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+]);
+const MESSAGE_FILE_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,application/pdf,.jpg,.jpeg,.png,.webp,.gif,.pdf';
 
 function getShowIconUrl(show) {
   return show?.iconUrls?.md || show?.iconUrls?.sm || show?.iconUrls?.lg || show?.iconUrl || '';
@@ -72,6 +82,22 @@ function cleanFileName(value) {
   return name || 'attachment';
 }
 
+function isAllowedMessageFile(file) {
+  return ALLOWED_MESSAGE_FILE_TYPES.has(messageFileContentType(file));
+}
+
+function messageFileContentType(file) {
+  const type = String(file?.type || '').toLowerCase();
+  if (ALLOWED_MESSAGE_FILE_TYPES.has(type)) return type;
+  const name = String(file?.name || '').toLowerCase();
+  if (/\.jpe?g$/.test(name)) return 'image/jpeg';
+  if (/\.png$/.test(name)) return 'image/png';
+  if (/\.webp$/.test(name)) return 'image/webp';
+  if (/\.gif$/.test(name)) return 'image/gif';
+  if (/\.pdf$/.test(name)) return 'application/pdf';
+  return type || 'application/octet-stream';
+}
+
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -82,6 +108,25 @@ function fileToBase64(file) {
     reader.onerror = () => reject(new Error('Failed to read attachment.'));
     reader.readAsDataURL(file);
   });
+}
+
+function renderMessageAttachment(attachment) {
+  const key = attachment.fileId || attachment.storagePath || attachment.downloadUrl;
+  if (attachment.kind === 'image' && (attachment.thumbnailUrl || attachment.downloadUrl)) {
+    return (
+      <a className="job-image-attachment" href={attachment.downloadUrl} target="_blank" rel="noreferrer" key={key}>
+        <img src={attachment.thumbnailUrl || attachment.downloadUrl} alt={attachment.fileName || 'Image attachment'} loading="lazy" />
+        <span>{attachment.fileName || 'Image attachment'}</span>
+      </a>
+    );
+  }
+
+  const isPdf = attachment.kind === 'pdf' || attachment.contentType === 'application/pdf';
+  return (
+    <a className="job-attachment" href={attachment.downloadUrl} target="_blank" rel="noreferrer" key={key}>
+      {isPdf ? <FiFileText /> : <FiDownload />} {attachment.fileName || 'Attachment'}
+    </a>
+  );
 }
 
 export default function ShowJobDetail() {
@@ -337,6 +382,13 @@ export default function ShowJobDetail() {
   };
 
   const buildMessageFileUploads = async () => {
+    if (messageFiles.length > MAX_MESSAGE_ATTACHMENT_COUNT) {
+      throw new Error(`Attach up to ${MAX_MESSAGE_ATTACHMENT_COUNT} files per message.`);
+    }
+    const unsupported = messageFiles.find((file) => !isAllowedMessageFile(file));
+    if (unsupported) {
+      throw new Error('Only JPG, PNG, WebP, GIF, and PDF files can be attached.');
+    }
     const totalBytes = messageFiles.reduce((sum, file) => sum + (file.size || 0), 0);
     if (totalBytes > MAX_MESSAGE_ATTACHMENT_TOTAL_BYTES) {
       throw new Error('Message attachments must be 16 MB or smaller total.');
@@ -351,7 +403,7 @@ export default function ShowJobDetail() {
       return {
         fileId,
         fileName: file.name || fileName,
-        contentType: file.type || 'application/octet-stream',
+        contentType: messageFileContentType(file),
         size: file.size || 0,
         dataBase64: await fileToBase64(file),
       };
@@ -375,6 +427,40 @@ export default function ShowJobDetail() {
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const selectMessageFiles = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) {
+      setMessageFiles([]);
+      return;
+    }
+    if (files.length > MAX_MESSAGE_ATTACHMENT_COUNT) {
+      notify(`Attach up to ${MAX_MESSAGE_ATTACHMENT_COUNT} files per message.`, 'error');
+      setMessageFiles([]);
+      event.target.value = '';
+      return;
+    }
+    if (files.some((file) => !isAllowedMessageFile(file))) {
+      notify('Only JPG, PNG, WebP, GIF, and PDF files can be attached.', 'error');
+      setMessageFiles([]);
+      event.target.value = '';
+      return;
+    }
+    const totalBytes = files.reduce((sum, file) => sum + (file.size || 0), 0);
+    if (files.some((file) => (file.size || 0) > MAX_MESSAGE_ATTACHMENT_BYTES)) {
+      notify('Each message attachment must be 8 MB or smaller.', 'error');
+      setMessageFiles([]);
+      event.target.value = '';
+      return;
+    }
+    if (totalBytes > MAX_MESSAGE_ATTACHMENT_TOTAL_BYTES) {
+      notify('Message attachments must be 16 MB or smaller total.', 'error');
+      setMessageFiles([]);
+      event.target.value = '';
+      return;
+    }
+    setMessageFiles(files);
   };
 
   const openAddContact = () => {
@@ -493,11 +579,7 @@ export default function ShowJobDetail() {
                   {message.body ? <p>{message.body}</p> : null}
                   {message.attachments?.length ? (
                     <div className="job-attachment-list">
-                      {message.attachments.map((attachment) => (
-                        <a className="job-attachment" href={attachment.downloadUrl} target="_blank" rel="noreferrer" key={attachment.fileId || attachment.storagePath}>
-                          <FiDownload /> {attachment.fileName}
-                        </a>
-                      ))}
+                      {message.attachments.map(renderMessageAttachment)}
                     </div>
                   ) : null}
                   <div className="job-message-meta">
@@ -512,7 +594,7 @@ export default function ShowJobDetail() {
               <div className="job-message-composer-bottom">
                 <label className="show-btn-outline job-file-picker">
                   <FiPaperclip /> Attach files
-                  <input type="file" multiple onChange={(e) => setMessageFiles(Array.from(e.target.files || []))} />
+                  <input type="file" multiple accept={MESSAGE_FILE_ACCEPT} onChange={selectMessageFiles} />
                 </label>
                 <button className="show-btn" type="submit" disabled={sendingMessage || (!messageBody.trim() && !messageFiles.length)}>
                   <FiSend /> {sendingMessage ? 'Sending...' : 'Send Message'}

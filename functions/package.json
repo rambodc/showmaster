@@ -16,7 +16,8 @@
     "firebase-admin": "^12.5.0",
     "firebase-functions": "^5.1.1",
     "nodemailer": "^8.0.7",
-    "openai": "^6.38.0"
+    "openai": "^6.38.0",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "firebase-functions-test": "^3.1.0"
