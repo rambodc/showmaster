@@ -1,6 +1,12 @@
 import { onCall } from 'firebase-functions/v2/https';
+import { getStorage } from 'firebase-admin/storage';
+import { randomUUID } from 'node:crypto';
 import { assertAuth, canAccessJob, db, FieldValue, HttpsError } from '../lib/firebase.js';
 import { EMAIL_SECRETS, sendTemplatedEmail } from '../lib/email.js';
+
+const MAX_ATTACHMENT_COUNT = 8;
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES = 16 * 1024 * 1024;
 
 function cleanText(value, max = 5000) {
   return String(value || '').trim().slice(0, max);
@@ -44,6 +50,71 @@ function cleanAttachment(input = {}) {
   };
 }
 
+function cleanUpload(input = {}) {
+  const fileName = cleanText(input.fileName, 240);
+  const contentType = cleanText(input.contentType, 120) || 'application/octet-stream';
+  const dataBase64 = cleanText(input.dataBase64, MAX_ATTACHMENT_BYTES * 2);
+  const size = Math.max(0, Number(input.size || 0));
+  if (!fileName || !dataBase64) return null;
+  if (size > MAX_ATTACHMENT_BYTES) {
+    throw new HttpsError('invalid-argument', 'Each attachment must be 8 MB or smaller.');
+  }
+  return {
+    fileId: cleanText(input.fileId, 160) || randomUUID(),
+    fileName,
+    contentType,
+    size,
+    dataBase64,
+  };
+}
+
+function cleanFileName(value) {
+  const name = cleanText(value, 240).replace(/[^a-zA-Z0-9._-]+/g, '-');
+  return name || 'attachment';
+}
+
+function downloadUrlFor(bucketName, filePath, token) {
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(filePath)}?alt=media&token=${token}`;
+}
+
+async function saveUploadedAttachments({ showId, jobId, batchId, uploads }) {
+  if (!uploads.length) return [];
+
+  const totalBytes = uploads.reduce((sum, item) => sum + item.size, 0);
+  if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
+    throw new HttpsError('invalid-argument', 'Total message attachments must be 16 MB or smaller.');
+  }
+
+  const bucket = getStorage().bucket();
+  return Promise.all(uploads.map(async (upload) => {
+    const buffer = Buffer.from(upload.dataBase64, 'base64');
+    if (!buffer.length || buffer.length > MAX_ATTACHMENT_BYTES) {
+      throw new HttpsError('invalid-argument', 'Attachment upload is invalid or too large.');
+    }
+
+    const token = randomUUID();
+    const safeName = cleanFileName(upload.fileName);
+    const storagePath = `shows/${showId}/jobs/${jobId}/message-files/${batchId}/${upload.fileId}-${safeName}`;
+    await bucket.file(storagePath).save(buffer, {
+      resumable: false,
+      metadata: {
+        contentType: upload.contentType,
+        cacheControl: 'private,max-age=3600',
+        metadata: { firebaseStorageDownloadTokens: token },
+      },
+    });
+
+    return {
+      fileId: upload.fileId,
+      fileName: upload.fileName,
+      contentType: upload.contentType,
+      size: buffer.length,
+      storagePath,
+      downloadUrl: downloadUrlFor(bucket.name, storagePath, token),
+    };
+  }));
+}
+
 async function userSummary(uid) {
   const snap = await db.collection('users').doc(uid).get();
   const data = snap.exists ? snap.data() || {} : {};
@@ -79,18 +150,36 @@ async function managerRecipients(showId, jobId, job = {}) {
 }
 
 async function companyRecipients(showId, jobId) {
+  const recipients = new Map();
+  const jobRef = db.collection('shows').doc(showId).collection('jobs').doc(jobId);
+
+  const companySnap = await jobRef.collection('widgets').doc('company').get();
+  const company = companySnap.exists ? companySnap.data() || {} : {};
+  const companyEmail = cleanEmail(company.email);
+  if (companyEmail) recipients.set(companyEmail, company.name || companyEmail);
+
+  const contactSnap = await jobRef
+    .collection('widgets').doc('company')
+    .collection('contacts')
+    .get();
+  contactSnap.docs.forEach((doc) => {
+    const contact = doc.data() || {};
+    const email = cleanEmail(contact.email);
+    if (email) recipients.set(email, contact.displayName || email);
+  });
+
   const memberSnap = await db.collection('shows').doc(showId)
     .collection('jobs').doc(jobId)
     .collection('members')
     .where('status', '==', 'active')
     .get();
-  return memberSnap.docs
-    .map((doc) => doc.data() || {})
-    .map((member) => ({
-      email: cleanEmail(member.email),
-      name: member.displayName || member.email || '',
-    }))
-    .filter((item) => item.email);
+  memberSnap.docs.forEach((doc) => {
+    const member = doc.data() || {};
+    const email = cleanEmail(member.email);
+    if (email) recipients.set(email, member.displayName || email);
+  });
+
+  return [...recipients.entries()].map(([email, name]) => ({ email, name }));
 }
 
 async function notifyRecipients({ recipients, senderName, showName, jobTitle, messageBody, jobUrl }) {
@@ -131,13 +220,16 @@ export const sendJobMessage = onCall({
   const jobId = cleanText(request.data?.jobId, 160);
   const body = cleanText(request.data?.body, 10000);
   const attachments = Array.isArray(request.data?.attachments)
-    ? request.data.attachments.slice(0, 12).map(cleanAttachment).filter(Boolean)
+    ? request.data.attachments.slice(0, MAX_ATTACHMENT_COUNT).map(cleanAttachment).filter(Boolean)
+    : [];
+  const uploads = Array.isArray(request.data?.fileUploads)
+    ? request.data.fileUploads.slice(0, MAX_ATTACHMENT_COUNT).map(cleanUpload).filter(Boolean)
     : [];
 
   if (!showId || !jobId) {
     throw new HttpsError('invalid-argument', 'showId and jobId are required.');
   }
-  if (!body && !attachments.length) {
+  if (!body && !attachments.length && !uploads.length) {
     throw new HttpsError('invalid-argument', 'Message text or attachments are required.');
   }
   const expectedPathPrefix = `shows/${showId}/jobs/${jobId}/message-files/`;
@@ -159,7 +251,9 @@ export const sendJobMessage = onCall({
   const senderName = user.name || member.displayName || senderEmail || callerUid;
   const now = FieldValue.serverTimestamp();
   const messageRef = db.collection('shows').doc(showId).collection('jobs').doc(jobId).collection('messages').doc();
-  const cleanAttachments = attachments.map((attachment) => ({
+  const batchId = cleanText(request.data?.batchId, 160) || messageRef.id;
+  const uploadedAttachments = await saveUploadedAttachments({ showId, jobId, batchId, uploads });
+  const cleanAttachments = [...attachments, ...uploadedAttachments].map((attachment) => ({
     ...attachment,
     fileId: attachment.fileId || db.collection('_').doc().id,
   }));

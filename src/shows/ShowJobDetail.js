@@ -1,7 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { collection, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   FiArrowLeft,
@@ -50,6 +49,9 @@ const emptyContact = {
   isPrimary: false,
 };
 
+const MAX_MESSAGE_ATTACHMENT_BYTES = 8 * 1024 * 1024;
+const MAX_MESSAGE_ATTACHMENT_TOTAL_BYTES = 16 * 1024 * 1024;
+
 function getShowIconUrl(show) {
   return show?.iconUrls?.md || show?.iconUrls?.sm || show?.iconUrls?.lg || show?.iconUrl || '';
 }
@@ -68,6 +70,18 @@ function displayDate(value) {
 function cleanFileName(value) {
   const name = String(value || 'attachment').trim().replace(/[^a-zA-Z0-9._-]+/g, '-');
   return name || 'attachment';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.includes(',') ? result.split(',').pop() : result);
+    };
+    reader.onerror = () => reject(new Error('Failed to read attachment.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function ShowJobDetail() {
@@ -322,24 +336,27 @@ export default function ShowJobDetail() {
     }
   };
 
-  const uploadMessageFiles = async (batchId) => Promise.all(messageFiles.map(async (file) => {
-    const fileId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const fileName = cleanFileName(file.name);
-    const path = `shows/${showId}/jobs/${jobId}/message-files/${batchId}/${fileId}-${fileName}`;
-    const fileRef = storageRef(storage, path);
-    await uploadBytes(fileRef, file, {
-      contentType: file.type || 'application/octet-stream',
-      cacheControl: 'private,max-age=3600',
-    });
-    return {
-      fileId,
-      fileName: file.name || fileName,
-      contentType: file.type || 'application/octet-stream',
-      size: file.size || 0,
-      storagePath: path,
-      downloadUrl: await getDownloadURL(fileRef),
-    };
-  }));
+  const buildMessageFileUploads = async () => {
+    const totalBytes = messageFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+    if (totalBytes > MAX_MESSAGE_ATTACHMENT_TOTAL_BYTES) {
+      throw new Error('Message attachments must be 16 MB or smaller total.');
+    }
+
+    return Promise.all(messageFiles.map(async (file) => {
+      if ((file.size || 0) > MAX_MESSAGE_ATTACHMENT_BYTES) {
+        throw new Error('Each message attachment must be 8 MB or smaller.');
+      }
+      const fileId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const fileName = cleanFileName(file.name);
+      return {
+        fileId,
+        fileName: file.name || fileName,
+        contentType: file.type || 'application/octet-stream',
+        size: file.size || 0,
+        dataBase64: await fileToBase64(file),
+      };
+    }));
+  };
 
   const sendMessage = async (event) => {
     event.preventDefault();
@@ -347,9 +364,9 @@ export default function ShowJobDetail() {
     setSendingMessage(true);
     try {
       const batchId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const attachments = await uploadMessageFiles(batchId);
+      const fileUploads = await buildMessageFileUploads();
       const fn = httpsCallable(functions, 'sendJobMessage');
-      await fn({ showId, jobId, body: messageBody, attachments });
+      await fn({ showId, jobId, body: messageBody, batchId, fileUploads });
       setMessageBody('');
       setMessageFiles([]);
       notify('Message sent.', 'success');
