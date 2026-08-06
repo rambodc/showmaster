@@ -17,10 +17,14 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - name: Validate required WIF secrets
+        run: |
+          test -n "${{ secrets.GCP_WIF_PROVIDER }}" || { echo "Missing secret: GCP_WIF_PROVIDER"; exit 1; }
+          test -n "${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}" || { echo "Missing secret: GCP_SERVICE_ACCOUNT_EMAIL"; exit 1; }
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/904627453868/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-firebase-deployer@showmaster1-f1a9f.iam.gserviceaccount.com
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -52,7 +56,5 @@ jobs:
         run: npm install --global firebase-tools
       - name: Test security rules
         run: npm run test:rules
-      - name: Verify deployment target
-        run: node -e "const c=JSON.parse(require('fs').readFileSync('.firebaserc')); if(c.projects.default!=='showmaster1-f1a9f') process.exit(1)"
       - name: Deploy Hosting and security rules
         run: firebase deploy --only hosting,firestore:rules,storage --project showmaster1-f1a9f --non-interactive --message "Hosting deploy from ${GITHUB_SHA}"

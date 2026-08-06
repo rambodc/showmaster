@@ -27,7 +27,7 @@ npm run test:rules # requires Java 21+
 - `health`: public HTTP health endpoint.
 - `getMyProfile`: authenticated callable that creates and returns the caller's profile.
 
-Each Function lives in its own folder under `functions/src/` and is exported by `functions/index.js`.
+Each product capability lives under `functions/apps/`. Shared Firebase, authentication, callable, and value helpers live under `functions/core/`; external integrations belong in `functions/services/`; operational tooling belongs in `functions/platform/`. The root `functions/index.js` only exports deployed functions.
 
 ## Deployment
 

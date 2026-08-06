@@ -1,11 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { useAuth } from './auth/AuthContext';
-import ProtectedRoute from './ProtectedRoute';
-import LandingPage from './pages/LandingPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import './App.css';
+import { useAuth } from '../auth/AuthProvider';
+import ProtectedRoute from '../auth/ProtectedRoute';
+import LoginPage from '../auth/LoginPage';
+import RegisterPage from '../auth/RegisterPage';
+import LandingPage from '../pages/LandingPage';
+import DashboardPage from '../pages/DashboardPage';
+import '../App.css';
 
 function PublicOnly({ children }) {
   const { user } = useAuth();
@@ -14,7 +14,6 @@ function PublicOnly({ children }) {
 
 export default function App() {
   const { user } = useAuth();
-
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />

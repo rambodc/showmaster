@@ -1,2 +1,2 @@
-export { health } from './src/health/index.js';
-export { getMyProfile } from './src/profile/index.js';
+export { health } from './apps/health/health.js';
+export { getMyProfile } from './apps/user-profile/profile.js';

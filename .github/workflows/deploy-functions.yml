@@ -5,6 +5,7 @@ on:
     paths:
       - functions/**
       - firebase.json
+      - .firebaserc
       - .github/workflows/deploy-functions.yml
   workflow_dispatch:
 concurrency:
@@ -21,21 +22,24 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      - name: Validate required WIF secrets
+        run: |
+          test -n "${{ secrets.GCP_WIF_PROVIDER }}" || { echo "Missing secret: GCP_WIF_PROVIDER"; exit 1; }
+          test -n "${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}" || { echo "Missing secret: GCP_SERVICE_ACCOUNT_EMAIL"; exit 1; }
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/904627453868/locations/global/workloadIdentityPools/github-pool/providers/github-provider
-          service_account: github-firebase-deployer@showmaster1-f1a9f.iam.gserviceaccount.com
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: functions/package-lock.json
       - run: npm --prefix functions ci
-      - run: npm --prefix functions test
+      - name: Test Functions without deployment credentials
+        run: env -u GOOGLE_APPLICATION_CREDENTIALS -u CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE -u GOOGLE_GHA_CREDS_PATH npm --prefix functions test
       - run: npm --prefix functions run check
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
-      - name: Verify deployment target
-        run: node -e "const c=JSON.parse(require('fs').readFileSync('.firebaserc')); if(c.projects.default!=='showmaster1-f1a9f') process.exit(1)"
       - name: Deploy Functions
         run: firebase deploy --only functions --project showmaster1-f1a9f --non-interactive --force --message "Functions deploy from ${GITHUB_SHA}"

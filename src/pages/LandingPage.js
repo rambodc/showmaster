@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import Brand from '../components/Brand';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../auth/AuthProvider';
 
 export default function LandingPage() {
   const { user } = useAuth();
