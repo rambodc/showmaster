@@ -53,6 +53,6 @@ jobs:
       - name: Test security rules
         run: npm run test:rules
       - name: Verify deployment target
-        run: test "$(firebase use)" = "showmaster1-f1a9f"
+        run: node -e "const c=JSON.parse(require('fs').readFileSync('.firebaserc')); if(c.projects.default!=='showmaster1-f1a9f') process.exit(1)"
       - name: Deploy Hosting and security rules
         run: firebase deploy --only hosting,firestore:rules,storage --project showmaster1-f1a9f --non-interactive --message "Hosting deploy from ${GITHUB_SHA}"
