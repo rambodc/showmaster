@@ -1,0 +1,58 @@
+name: Deploy Hosting and rules
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+concurrency:
+  group: showmaster-dev-hosting
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/904627453868/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-firebase-deployer@showmaster1-f1a9f.iam.gserviceaccount.com
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Create frontend environment
+        run: |
+          cat > .env << 'EOF'
+          REACT_APP_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+          REACT_APP_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+          REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          EOF
+      - run: npm ci
+      - name: Test frontend
+        run: npm test -- --watchAll=false
+        env:
+          CI: true
+      - name: Build frontend
+        run: npm run build
+        env:
+          CI: true
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+      - name: Test security rules
+        run: npm run test:rules
+      - name: Verify deployment target
+        run: test "$(firebase use)" = "showmaster1-f1a9f"
+      - name: Deploy Hosting and security rules
+        run: firebase deploy --only hosting,firestore:rules,storage --project showmaster1-f1a9f --non-interactive --message "Hosting deploy from ${GITHUB_SHA}"

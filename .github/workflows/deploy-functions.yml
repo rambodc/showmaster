@@ -1,0 +1,41 @@
+name: Deploy Functions
+on:
+  push:
+    branches: [dev]
+    paths:
+      - functions/**
+      - firebase.json
+      - .github/workflows/deploy-functions.yml
+  workflow_dispatch:
+concurrency:
+  group: showmaster-dev-functions
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/904627453868/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-firebase-deployer@showmaster1-f1a9f.iam.gserviceaccount.com
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: npm --prefix functions ci
+      - run: npm --prefix functions test
+      - run: npm --prefix functions run check
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+      - name: Verify deployment target
+        run: test "$(firebase use)" = "showmaster1-f1a9f"
+      - name: Deploy Functions
+        run: firebase deploy --only functions --project showmaster1-f1a9f --non-interactive --force --message "Functions deploy from ${GITHUB_SHA}"

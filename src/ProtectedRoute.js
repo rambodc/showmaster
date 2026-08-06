@@ -1,24 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './firebase';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from './auth/AuthContext';
+import LoadingScreen from './components/LoadingScreen';
 
-function ProtectedRoute({ children }) {
-  const [user, setUser] = useState(null);
-  const [checking, setChecking] = useState(true);
+export default function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setChecking(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  if (checking) return null; // Optional: Loading spinner
-
-  return user ? children : <Navigate to="/signin" />;
+  if (loading) return <LoadingScreen label="Checking your session" />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  return children;
 }
-
-export default ProtectedRoute;
