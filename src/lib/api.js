@@ -17,6 +17,12 @@ export const prepareImageUpload = call('prepareImageUpload');
 export const deleteTrack = call('deleteTrack');
 export const updateTrack = call('updateTrack');
 export const reorderTracks = call('reorderTracks');
+export const createPlaylist = call('createPlaylist');
+export const renamePlaylist = call('renamePlaylist');
+export const deletePlaylist = call('deletePlaylist');
+export const addTrackToPlaylist = call('addTrackToPlaylist');
+export const removeTrackFromPlaylist = call('removeTrackFromPlaylist');
+export const reorderPlaylistTracks = call('reorderPlaylistTracks');
 
 export function friendlyError(error) {
   const message = error?.message?.replace(/^Firebase:\s*/i, '').replace(/\s*\(functions\/[^)]+\)\.?$/, '');

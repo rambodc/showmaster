@@ -1,11 +1,11 @@
 import { Clock3, Pause, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import PublicNav from "../components/PublicNav";
 import { getArtist, getRelease, getReleaseTracks } from "../lib/catalog";
 import { useAudio } from "../music/AudioProvider";
 import CatalogArtwork from "../music/CatalogArtwork";
 import { formatTime } from "../music/constants";
+import { AddToPlaylistButton } from "../playlists/PlaylistProvider";
 
 export default function ReleasePage() {
   const { releaseId } = useParams();
@@ -47,12 +47,11 @@ export default function ReleasePage() {
   );
   const releaseActive = audio.track?.release?.id === release?.id;
   const playRelease = () => releaseActive ? audio.toggle() : audio.playTracks(playable);
-  if (loading) return <div className="public-shell"><PublicNav /><div className="catalog-state">Loading release…</div></div>;
-  if (error) return <div className="public-shell"><PublicNav /><div className="catalog-state error" role="alert">{error}</div></div>;
-  if (!release) return <div className="public-shell"><PublicNav /><div className="catalog-state">Release not found.</div></div>;
+  if (loading) return <div className="public-shell"><div className="catalog-state">Loading release…</div></div>;
+  if (error) return <div className="public-shell"><div className="catalog-state error" role="alert">{error}</div></div>;
+  if (!release) return <div className="public-shell"><div className="catalog-state">Release not found.</div></div>;
   return (
     <div className="public-shell">
-      <PublicNav />
       <main className="release-public">
         <section className="release-public__hero">
           <CatalogArtwork item={release} size="hero" />
@@ -71,13 +70,13 @@ export default function ReleasePage() {
           <header><span>#</span><span>Track</span><Clock3 /></header>
           {tracks.map((track, index) => {
             const active = audio.isTrackActive(track.id);
-            return (
-              <button className={active ? "active" : ""} onClick={() => active ? audio.toggle() : audio.playTracks(playable, track.id)} key={track.id}>
-                <span>{active && audio.playing ? <Pause fill="currentColor" /> : index + 1}</span>
-                <span><strong>{track.title}</strong><small>{artist?.name}</small></span>
-                <time>{formatTime(track.durationSeconds || 0)}</time>
+            const playableTrack = playable.find((item) => item.id === track.id);
+            return <article className={active ? "active" : ""} key={track.id}>
+              <button onClick={() => active ? audio.toggle() : audio.playTracks(playable, track.id)}>
+                <span>{active && audio.playing ? <Pause fill="currentColor" /> : index + 1}</span><span><strong>{track.title}</strong><small>{artist?.name}</small></span><time>{formatTime(track.durationSeconds || 0)}</time>
               </button>
-            );
+              <AddToPlaylistButton track={playableTrack} />
+            </article>;
           })}
         </section>
         <aside className="rights-note">This release is presented as AI-generated or AI-assisted music by a Virtual Artist. Its uploader confirmed the necessary rights to publish it.</aside>

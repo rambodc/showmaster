@@ -4,6 +4,7 @@ import { mediaUrl } from "../lib/catalog";
 import { AudioProvider, useAudio } from "./AudioProvider";
 
 vi.mock("../lib/catalog", () => ({ mediaUrl: vi.fn() }));
+vi.mock("../playlists/PlaylistProvider", () => ({ AddToPlaylistButton: () => null }));
 
 const tracks = [
   { id: "one", title: "First", artistName: "Nova", status: "ready", storagePath: "one.mp3", access: "public" },
@@ -21,6 +22,7 @@ describe("AudioProvider", () => {
     mediaUrl.mockImplementation((path) => Promise.resolve(`https://media.test/${path}`));
     HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
     HTMLMediaElement.prototype.pause = vi.fn();
+    HTMLMediaElement.prototype.load = vi.fn();
   });
 
   test("pause controls the real audio element and play resumes it", async () => {
@@ -40,6 +42,7 @@ describe("AudioProvider", () => {
     expect(await screen.findByRole("button", { name: "Previous track" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Next track" }));
     await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("two:playing"));
+    await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("button", { name: "Next track" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Previous track" }));
     await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("one:playing"));
@@ -54,5 +57,27 @@ describe("AudioProvider", () => {
     fireEvent.change(screen.getByRole("slider", { name: "Volume" }), { target: { value: "0.4" } });
     expect(window.localStorage.getItem("showmaster.player.volume.v1")).toBe("0.4");
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+  });
+
+  test("rapid selection detaches the old source and ignores a stale URL response", async () => {
+    let resolveFirst;
+    let resolveSecond;
+    mediaUrl.mockImplementation((path) => new Promise((resolve) => {
+      if (path === "one.mp3") resolveFirst = resolve;
+      else resolveSecond = resolve;
+    }));
+    const { container } = render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    await waitFor(() => expect(resolveFirst).toBeTypeOf("function"));
+    fireEvent.click(screen.getByRole("button", { name: "Next track" }));
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+    expect(HTMLMediaElement.prototype.load).toHaveBeenCalled();
+    fireEvent.pause(container.querySelector("audio"));
+    expect(screen.getByTestId("state")).toHaveTextContent("two:playing");
+    await waitFor(() => expect(resolveSecond).toBeTypeOf("function"));
+    resolveSecond("https://media.test/two.mp3");
+    await waitFor(() => expect(container.querySelector("audio").src).toContain("two.mp3"));
+    resolveFirst("https://media.test/one.mp3");
+    await waitFor(() => expect(container.querySelector("audio").src).toContain("two.mp3"));
   });
 });

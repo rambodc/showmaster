@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Sparkles } from "lucide-react";
-import PublicNav from "../components/PublicNav";
 import ReleaseCard from "../components/ReleaseCard";
 import { getPublicReleases } from "../lib/catalog";
 
@@ -42,7 +41,6 @@ export default function LibraryPage() {
   );
   return (
     <div className="public-shell">
-      <PublicNav />
       <main className="library-page">
         <section className="library-hero">
           <span>

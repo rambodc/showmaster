@@ -19,7 +19,7 @@ import {
   Upload,
   UserRound,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import {
   createRelease,
@@ -648,12 +648,14 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
   );
 }
 
-export default function DashboardPage() {
+export default function DashboardPage({ initialView = "overview" }) {
   const { user, profile, logout, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+  const { releaseId } = useParams();
   const [artist, setArtist] = useState(null);
   const [releases, setReleases] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("overview");
+  const [view, setView] = useState(initialView);
   const [selected, setSelected] = useState(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -670,19 +672,18 @@ export default function DashboardPage() {
         ]);
         setArtist({ ...artistValue, storageBytes: profile?.storageBytes || 0 });
         setReleases(releaseValues);
-        setSelected((value) =>
-          value
-            ? releaseValues.find((item) => item.id === value.id) || null
-            : null,
-        );
+        setSelected((value) => releaseId
+          ? releaseValues.find((item) => item.id === releaseId) || null
+          : value ? releaseValues.find((item) => item.id === value.id) || null : null);
       } catch {
         setError("Your creator workspace could not be loaded.");
       } finally {
         setLoading(false);
       }
     },
-    [profile?.artistId, profile?.storageBytes, user.uid],
+    [profile?.artistId, profile?.storageBytes, releaseId, user.uid],
   );
+  useEffect(() => { setView(initialView); }, [initialView]);
   useEffect(() => {
     load();
   }, [load]);
@@ -699,32 +700,17 @@ export default function DashboardPage() {
   if (selected)
     return (
       <div className="creator-shell">
-        <StudioSidebar
-          view="releases"
-          setView={(next) => {
-            setSelected(null);
-            setView(next);
-          }}
-          artist={artist}
-          logout={logout}
-        />
         <ReleaseEditor
           release={selected}
           artist={artist}
           ownerUid={user.uid}
-          onBack={() => setSelected(null)}
+          onBack={() => navigate("/app/profile")}
           onChanged={() => load(artist.id)}
         />
       </div>
     );
   return (
     <div className="creator-shell">
-      <StudioSidebar
-        view={view}
-        setView={setView}
-        artist={artist}
-        logout={logout}
-      />
       <main className="creator-main">
         <header className="creator-header">
           <div>
@@ -732,9 +718,7 @@ export default function DashboardPage() {
             <h1>
               {view === "overview"
                 ? `Welcome back, ${artist.name}.`
-                : view === "releases"
-                  ? "Your releases"
-                  : "Artist profile"}
+                : "Your profile and music"}
             </h1>
           </div>
           <button className="stream-primary" onClick={() => setCreating(true)}>
@@ -801,17 +785,22 @@ export default function DashboardPage() {
             </div>
           </>
         )}
-        {(view === "overview" || view === "releases") && (
+        {view === "profile" && (
+          <ArtistSettings
+            artist={artist}
+            onSaved={() => load(artist.id)}
+            onDeleted={logout}
+          />
+        )}
+        {(view === "overview" || view === "profile") && (
           <section className="creator-releases">
             <header>
               <div>
                 <span>
-                  {view === "overview" ? "Recent work" : "Catalog manager"}
+                  {view === "overview" ? "Recent work" : "Your music"}
                 </span>
                 <h2>
-                  {view === "overview"
-                    ? "Your latest releases"
-                    : "Singles and albums"}
+                  {view === "overview" ? "Your latest releases" : "Singles, albums, and drafts"}
                 </h2>
               </div>
             </header>
@@ -827,7 +816,7 @@ export default function DashboardPage() {
             ) : (
               <div className="creator-release-grid">
                 {releases.map((release) => (
-                  <button onClick={() => setSelected(release)} key={release.id}>
+                  <button onClick={() => navigate(`/app/releases/${release.id}`)} key={release.id}>
                     <CatalogArtwork item={release} />
                     <span className={`release-state ${release.status}`}>
                       {release.status}
@@ -841,13 +830,6 @@ export default function DashboardPage() {
               </div>
             )}
           </section>
-        )}
-        {view === "artist" && (
-          <ArtistSettings
-            artist={artist}
-            onSaved={() => load(artist.id)}
-            onDeleted={logout}
-          />
         )}
       </main>
       {creating && (
@@ -864,12 +846,7 @@ export default function DashboardPage() {
                 const result = await createRelease(form);
                 setCreating(false);
                 await load(artist.id);
-                setSelected({
-                  id: result.releaseId,
-                  ...form,
-                  status: "draft",
-                  artistId: artist.id,
-                });
+                navigate(`/app/releases/${result.releaseId}`);
               }}
             />
           </div>

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { mediaUrl } from "../lib/catalog";
 import MusicArtwork from "./MusicArtwork";
+import { AddToPlaylistButton } from "../playlists/PlaylistProvider";
 
 const AudioContext = createContext(null);
 const VOLUME_KEY = "showmaster.player.volume.v1";
@@ -45,11 +46,14 @@ const formatTime = (seconds) => {
 export function AudioProvider({ children }) {
   const audioRef = useRef(null);
   const objectUrlRef = useRef("");
+  const requestRef = useRef(0);
+  const autoplayRef = useRef(false);
+  const transitioningRef = useRef(false);
   const previousVolumeRef = useRef(DEFAULT_VOLUME);
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [source, setSource] = useState("");
+  const [sourceReady, setSourceReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(storedVolume);
@@ -64,11 +68,8 @@ export function AudioProvider({ children }) {
 
   useEffect(() => {
     let live = true;
+    const request = ++requestRef.current;
     const element = audioRef.current;
-    element?.pause();
-    setSource("");
-    setCurrentTime(0);
-    setDuration(0);
     setError("");
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
@@ -77,6 +78,7 @@ export function AudioProvider({ children }) {
     if (!track?.storagePath) {
       setPlaying(false);
       setLoading(false);
+      transitioningRef.current = false;
       return undefined;
     }
     setLoading(true);
@@ -84,12 +86,24 @@ export function AudioProvider({ children }) {
       privateAccess: track.access === "private-preview",
     })
       .then((url) => {
-        if (!live) {
+        if (!live || request !== requestRef.current) {
           if (url.startsWith("blob:")) URL.revokeObjectURL(url);
           return;
         }
         if (url.startsWith("blob:")) objectUrlRef.current = url;
-        setSource(url);
+        element.src = url;
+        element.load();
+        setSourceReady(true);
+        if (autoplayRef.current) {
+          element.play().catch(() => {
+            autoplayRef.current = false;
+            transitioningRef.current = false;
+            setPlaying(false);
+            setError("Playback was blocked. Press play to try again.");
+          });
+        } else {
+          transitioningRef.current = false;
+        }
       })
       .catch(() => {
         if (!live) return;
@@ -99,6 +113,8 @@ export function AudioProvider({ children }) {
             : "This track could not be loaded.",
         );
         setPlaying(false);
+        autoplayRef.current = false;
+        transitioningRef.current = false;
       })
       .finally(() => live && setLoading(false));
     return () => {
@@ -113,20 +129,6 @@ export function AudioProvider({ children }) {
     window.localStorage.setItem(VOLUME_KEY, String(volume));
   }, [volume]);
 
-  useEffect(() => {
-    const element = audioRef.current;
-    if (!element) return;
-    if (!playing) {
-      element.pause();
-      return;
-    }
-    if (!source) return;
-    element.play().catch(() => {
-      setPlaying(false);
-      setError("Playback was blocked. Press play to try again.");
-    });
-  }, [playing, source]);
-
   useEffect(
     () => () => {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -134,13 +136,36 @@ export function AudioProvider({ children }) {
     [],
   );
 
+  const detachSource = useCallback(() => {
+    const element = audioRef.current;
+    requestRef.current += 1;
+    transitioningRef.current = true;
+    setSourceReady(false);
+    setCurrentTime(0);
+    setDuration(0);
+    if (!element) return;
+    element.pause();
+    element.removeAttribute("src");
+    element.load();
+  }, []);
   const play = useCallback(() => {
-    if (track) {
-      setError("");
-      setPlaying(true);
-    }
-  }, [track]);
-  const pause = useCallback(() => setPlaying(false), []);
+    if (!track) return;
+    autoplayRef.current = true;
+    setError("");
+    setPlaying(true);
+    if (sourceReady)
+      audioRef.current?.play().catch(() => {
+        autoplayRef.current = false;
+        setPlaying(false);
+        setError("Playback was blocked. Press play to try again.");
+      });
+  }, [sourceReady, track]);
+  const pause = useCallback(() => {
+    autoplayRef.current = false;
+    transitioningRef.current = false;
+    audioRef.current?.pause();
+    setPlaying(false);
+  }, []);
   const toggle = useCallback(
     () => (playing ? pause() : play()),
     [pause, play, playing],
@@ -165,9 +190,13 @@ export function AudioProvider({ children }) {
     }
   }, [volume]);
   const selectTrack = useCallback((nextIndex) => {
+    autoplayRef.current = true;
+    detachSource();
     setIndex(nextIndex);
+    setRetryKey((value) => value + 1);
     setPlaying(true);
-  }, []);
+    setLoading(true);
+  }, [detachSource]);
   const previous = useCallback(() => {
     if (!hasPrevious) return;
     selectTrack(index - 1);
@@ -181,28 +210,34 @@ export function AudioProvider({ children }) {
       (item) => item.status === "ready" && item.storagePath,
     );
     if (!playable.length) return false;
+    autoplayRef.current = true;
+    detachSource();
     const requestedIndex = playable.findIndex((item) => item.id === startId);
     setQueue(playable);
     setIndex(requestedIndex >= 0 ? requestedIndex : 0);
+    setRetryKey((value) => value + 1);
     setPlaying(true);
     setError("");
+    setLoading(true);
     return true;
-  }, []);
+  }, [detachSource]);
   const retry = useCallback(() => {
+    autoplayRef.current = true;
+    detachSource();
     setError("");
     setPlaying(true);
     setRetryKey((value) => value + 1);
-  }, []);
+  }, [detachSource]);
   const close = useCallback(() => {
-    audioRef.current?.pause();
+    autoplayRef.current = false;
+    detachSource();
     setPlaying(false);
     setQueue([]);
     setIndex(0);
-    setSource("");
     setQueueOpen(false);
     setExpanded(false);
     setError("");
-  }, []);
+  }, [detachSource]);
   const isTrackActive = useCallback(
     (trackId) => track?.id === trackId,
     [track?.id],
@@ -252,23 +287,30 @@ export function AudioProvider({ children }) {
       {children}
       <audio
         ref={audioRef}
-        src={source || undefined}
         preload="metadata"
         onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
+        onPause={() => {
+          if (!transitioningRef.current) setPlaying(false);
+        }}
         onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
         onDurationChange={(event) =>
           setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)
         }
         onWaiting={() => setLoading(true)}
-        onPlaying={() => setLoading(false)}
+        onPlaying={() => {
+          transitioningRef.current = false;
+          setLoading(false);
+          setPlaying(true);
+        }}
         onCanPlay={() => setLoading(false)}
         onEnded={() => {
           if (hasNext) next();
           else setPlaying(false);
         }}
         onError={() => {
-          if (!source) return;
+          if (!sourceReady) return;
+          autoplayRef.current = false;
+          transitioningRef.current = false;
           setPlaying(false);
           setLoading(false);
           setError("This track could not be played.");
@@ -294,7 +336,7 @@ export function AudioProvider({ children }) {
           <div className="real-player__center">
             <div>
               <button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button>
-              <button className="real-play" onClick={toggle} disabled={loading && !source} aria-label={playing ? "Pause" : "Play"}>
+              <button className="real-play" onClick={toggle} disabled={loading && !sourceReady} aria-label={playing ? "Pause" : "Play"}>
                 {playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
               </button>
               <button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button>
@@ -308,6 +350,7 @@ export function AudioProvider({ children }) {
             {loading && <small role="status">Loading audio…</small>}
           </div>
           <div className="real-player__tools">
+            <AddToPlaylistButton track={track} />
             <button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button>
             <input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(event.target.value)} />
             <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>
@@ -325,10 +368,12 @@ export function AudioProvider({ children }) {
             <aside className="real-queue" aria-label="Playback queue">
               <header><strong>Queue</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></header>
               {queue.map((item, itemIndex) => (
-                <button className={itemIndex === index ? "active" : ""} aria-current={itemIndex === index ? "true" : undefined} onClick={() => selectTrack(itemIndex)} key={item.id}>
-                  <span>{itemIndex + 1}</span>
-                  <div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div>
-                </button>
+                <div className={`real-queue__item${itemIndex === index ? " active" : ""}`} key={`${item.release?.id || item.releaseId}-${item.id}`}>
+                  <button aria-current={itemIndex === index ? "true" : undefined} onClick={() => selectTrack(itemIndex)}>
+                    <span>{itemIndex + 1}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div>
+                  </button>
+                  <AddToPlaylistButton track={item} />
+                </div>
               ))}
             </aside>
           )}
