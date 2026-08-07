@@ -2,8 +2,38 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if false;
+    function signedIn() { return request.auth != null; }
+    function release(releaseId) { return firestore.get(/databases/(default)/documents/releases/$(releaseId)).data; }
+    function track(releaseId, trackId) { return firestore.get(/databases/(default)/documents/releases/$(releaseId)/tracks/$(trackId)).data; }
+    function media(uploadId) { return firestore.get(/databases/(default)/documents/mediaUploads/$(uploadId)).data; }
+    function mediaIsPublic(uploadId) {
+      let upload = media(uploadId);
+      return upload.targetType == 'artist'
+        ? firestore.get(/databases/(default)/documents/artists/$(upload.targetId)).data.status == 'active'
+        : firestore.get(/databases/(default)/documents/releases/$(upload.targetId)).data.status == 'published';
     }
+
+    match /users/{uid}/releases/{releaseId}/audio/{trackId}/{fileName} {
+      allow read: if release(releaseId).status == 'published' || (signedIn() && request.auth.uid == uid && release(releaseId).ownerUid == uid);
+      allow create: if signedIn() && request.auth.uid == uid
+        && release(releaseId).ownerUid == uid && release(releaseId).status == 'draft'
+        && fileName == 'track.mp3'
+        && track(releaseId, trackId).ownerUid == uid
+        && track(releaseId, trackId).status == 'uploading'
+        && track(releaseId, trackId).storagePath == 'users/' + uid + '/releases/' + releaseId + '/audio/' + trackId + '/track.mp3'
+        && request.resource.size <= 50 * 1024 * 1024
+        && request.resource.contentType == 'audio/mpeg';
+      allow update, delete: if false;
+    }
+    match /users/{uid}/media/{uploadId}/{fileName} {
+      allow read: if mediaIsPublic(uploadId) || (signedIn() && request.auth.uid == uid && media(uploadId).ownerUid == uid);
+      allow create: if signedIn() && request.auth.uid == uid && media(uploadId).ownerUid == uid
+        && media(uploadId).status == 'uploading'
+        && media(uploadId).storagePath == 'users/' + uid + '/media/' + uploadId + '/' + fileName
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
+    }
+    match /{allPaths=**} { allow read, write: if false; }
   }
 }

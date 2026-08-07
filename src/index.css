@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Manrope:wght@500;600;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root { --ink:#17201b; --forest:#1e3328; --cream:#f4f1e8; --paper:#fbfaf6; --lime:#d7f36a; --sage:#9bac9f; --line:#d9ddd5; --error:#a53b32; }
 * { box-sizing:border-box; }
 html { background:var(--cream); }

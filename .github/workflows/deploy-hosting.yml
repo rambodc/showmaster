@@ -36,16 +36,16 @@ jobs:
       - name: Create frontend environment
         run: |
           cat > .env << 'EOF'
-          REACT_APP_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
-          REACT_APP_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
-          REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
-          REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+          VITE_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
           EOF
       - run: npm ci
       - name: Test frontend
-        run: npm test -- --watchAll=false
+        run: npm test
         env:
           CI: true
       - name: Build frontend
@@ -56,5 +56,7 @@ jobs:
         run: npm install --global firebase-tools
       - name: Test security rules
         run: npm run test:rules
+      - name: Apply Storage CORS
+        run: gcloud storage buckets update gs://showmaster1-f1a9f.firebasestorage.app --cors-file=storage.cors.json
       - name: Deploy Hosting and security rules
-        run: firebase deploy --only hosting,firestore:rules,storage --project showmaster1-f1a9f --non-interactive --message "Hosting deploy from ${GITHUB_SHA}"
+        run: firebase deploy --only hosting,firestore,storage --project showmaster1-f1a9f --non-interactive --message "Hosting deploy from ${GITHUB_SHA}"

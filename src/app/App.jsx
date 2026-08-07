@@ -5,7 +5,9 @@ import LoginPage from '../auth/LoginPage';
 import RegisterPage from '../auth/RegisterPage';
 import LandingPage from '../pages/LandingPage';
 import DashboardPage from '../pages/DashboardPage';
-import '../App.css';
+import LibraryPage from '../pages/LibraryPage';
+import ArtistPage from '../pages/ArtistPage';
+import ReleasePage from '../pages/ReleasePage';
 
 function PublicOnly({ children }) {
   const { user } = useAuth();
@@ -19,6 +21,9 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
+      <Route path="/library" element={<LibraryPage />} />
+      <Route path="/artist/:slug" element={<ArtistPage />} />
+      <Route path="/release/:releaseId" element={<ReleasePage />} />
       <Route path="/app" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to={user ? '/app' : '/'} replace />} />
     </Routes>

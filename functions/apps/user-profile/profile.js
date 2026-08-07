@@ -4,7 +4,7 @@ import { db } from '../../core/firebase.js';
 import { timestampToIso } from '../../core/values.js';
 
 export function serializeProfile(uid, authToken, data = {}) {
-  return { uid, email: data.email || authToken.email || null, displayName: data.displayName || authToken.name || '', createdAt: timestampToIso(data.createdAt), updatedAt: timestampToIso(data.updatedAt) };
+  return { uid, email: data.email || authToken.email || null, displayName: data.displayName || authToken.name || '', artistId: data.artistId || null, storageBytes: data.storageBytes || 0, reservedBytes: data.reservedBytes || 0, createdAt: timestampToIso(data.createdAt), updatedAt: timestampToIso(data.updatedAt) };
 }
 
 export const getMyProfile = authenticatedCallable(async (request, authentication) => {
@@ -12,7 +12,7 @@ export const getMyProfile = authenticatedCallable(async (request, authentication
   const reference = db.collection('users').doc(uid);
   let snapshot = await reference.get();
   if (!snapshot.exists) {
-    await reference.create({ uid, email: token.email || null, displayName: token.name || '', createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }).catch((error) => {
+    await reference.create({ uid, email: token.email || null, displayName: token.name || '', artistId: null, storageBytes: 0, reservedBytes: 0, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }).catch((error) => {
       if (error?.code !== 6 && error?.code !== 'already-exists') throw error;
     });
     snapshot = await reference.get();

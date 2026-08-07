@@ -2,13 +2,39 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow create, update, delete: if false;
-    }
+    function signedIn() { return request.auth != null; }
+    function owns(data) { return signedIn() && data.ownerUid == request.auth.uid; }
+    function releaseIsPublic(releaseId) { return get(/databases/$(database)/documents/releases/$(releaseId)).data.status == 'published'; }
 
-    match /{document=**} {
-      allow read, write: if false;
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
     }
+    match /artists/{artistId} {
+      allow read: if resource.data.status == 'active' || owns(resource.data);
+      allow write: if false;
+    }
+    match /releases/{releaseId} {
+      allow read: if resource.data.status == 'published' || owns(resource.data);
+      allow write: if false;
+      match /tracks/{trackId} {
+        allow read: if releaseIsPublic(releaseId) || owns(resource.data);
+        allow write: if false;
+      }
+    }
+    match /mediaUploads/{uploadId} {
+      allow read: if owns(resource.data);
+      allow write: if false;
+    }
+    match /playlists/{playlistId} {
+      allow read: if owns(resource.data);
+      allow write: if false;
+      match /tracks/{entryId} {
+        allow read: if signedIn() && get(/databases/$(database)/documents/playlists/$(playlistId)).data.ownerUid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+    match /artistNames/{name} { allow read, write: if false; }
+    match /{document=**} { allow read, write: if false; }
   }
 }

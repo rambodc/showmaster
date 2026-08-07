@@ -1,0 +1,14 @@
+[
+  {
+    "origin": [
+      "https://showmaster1-f1a9f.web.app",
+      "https://showmaster1-f1a9f.firebaseapp.com",
+      "https://showmaster.ca",
+      "https://www.showmaster.ca",
+      "http://localhost:5173"
+    ],
+    "method": ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Cache-Control", "Content-Range", "Range", "x-goog-resumable"],
+    "maxAgeSeconds": 3600
+  }
+]
