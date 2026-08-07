@@ -42,7 +42,15 @@ jobs:
       - name: Install Firebase CLI
         run: npm install --global firebase-tools
       - name: Deploy Functions
-        run: firebase deploy --only functions --project showmaster1-f1a9f --non-interactive --force --message "Functions deploy from ${GITHUB_SHA}"
+        # The existing cleanupStaleUploads scheduler is intentionally excluded:
+        # this WIF identity deploys runtime functions but cannot mutate Scheduler jobs.
+        run: >-
+          firebase deploy
+          --only functions:health,functions:getMyProfile,functions:createVirtualArtist,functions:updateVirtualArtist,functions:deleteVirtualArtist,functions:createRelease,functions:updateRelease,functions:publishRelease,functions:unpublishRelease,functions:deleteRelease,functions:createPlaylist,functions:renamePlaylist,functions:deletePlaylist,functions:addTrackToPlaylist,functions:removeTrackFromPlaylist,functions:reorderPlaylistTracks,functions:prepareTrackUpload,functions:prepareImageUpload,functions:deleteTrack,functions:updateTrack,functions:reorderTracks,functions:validateTrackUpload,functions:validateImageUpload
+          --project showmaster1-f1a9f
+          --non-interactive
+          --force
+          --message "Functions deploy from ${GITHUB_SHA}"
       - name: Allow Eventarc to invoke upload validators
         run: |
           for function_name in validateImageUpload validateTrackUpload; do
