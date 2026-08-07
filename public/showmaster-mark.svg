@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
   <title id="title">ShowMaster pulse monogram</title>
-  <defs><linearGradient id="background" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse"><stop stop-color="#ef5db1"/><stop offset="1" stop-color="#7650e8"/></linearGradient></defs>
-  <rect width="64" height="64" rx="17" fill="url(#background)"/>
-  <path d="M45.5 15.5H25.8c-6.2 0-10.3 3.5-10.3 8.7 0 5 3.8 8.2 9.8 8.2h13.4c3.1 0 5 1.4 5 3.9 0 2.6-2 4.2-5.3 4.2H18.2" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M8 32h10l3.5-7.5 6.2 16 6-20 5.2 11.5H56" fill="none" stroke="#ffb1d7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="15" fill="#fffaf8"/>
+  <path d="M49 14H25C17.3 14 12 18.8 12 25.5S17.3 37 25 37h14c7.7 0 13 4.4 13 11S46.7 59 39 59H15" fill="none" stroke="#260958" stroke-width="8" stroke-linecap="square" stroke-linejoin="round"/>
+  <path d="M8 36h13l3.6-7.2 6.2 15.4 6.1-21.4 6 13.2H56" fill="none" stroke="#9d45ef" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21 36l3.6-7.2 6.2 15.4 6.1-21.4 6 13.2" fill="none" stroke="#f247a2" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
