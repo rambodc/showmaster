@@ -67,16 +67,19 @@ export default function ReleasePage() {
             </button>
           </div>
         </section>
-        <section className="track-list">
-          <header><span>#</span><span>Track</span><Clock3 /></header>
+        <section className="track-list public-track-list">
+          <header><span>#</span><span aria-hidden="true" /><span>Track</span><Clock3 /></header>
           {tracks.map((track, index) => {
             const active = audio.isTrackActive(track.id);
             const playableTrack = playable.find((item) => item.id === track.id);
-            return <article className={active ? "active" : ""} key={track.id}>
-              <button onClick={() => active ? audio.toggle() : audio.playTracks(playable, track.id)}>
-                <span>{active && audio.playing ? <Pause fill="currentColor" /> : index + 1}</span><span><strong>{track.title}</strong><small>{artist?.name}</small></span><time>{formatTime(track.durationSeconds || 0)}</time>
+            return <article className={`public-track-row${active ? " active" : ""}`} key={track.id}>
+              <button className="public-track-row__main" onClick={() => active ? audio.toggle() : audio.playTracks(playable, track.id)} aria-label={`${active && audio.playing ? "Pause" : "Play"} ${track.title}`}>
+                <span className="public-track-row__number">{String(index + 1).padStart(2, "0")}</span>
+                <span className="public-track-row__play">{active && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span>
+                <span className="public-track-row__details"><strong>{track.title}</strong><small>{artist?.name}</small></span>
+                <time>{formatTime(track.durationSeconds || 0)}</time>
               </button>
-              <AddToPlaylistButton track={playableTrack} />
+              <AddToPlaylistButton track={playableTrack} className="public-track-row__playlist" />
             </article>;
           })}
         </section>
