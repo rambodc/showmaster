@@ -66,7 +66,7 @@ export default function PlaylistsPage() {
 
   if (loading) return <main className="playlist-page"><PageSkeleton label="Loading playlists" /></main>;
   if (!playlistId) return <main className="playlist-page">
-    <header><div><span>Your private collection</span><h1>My Playlists</h1><p>Create personal queues from published music across Showmaster.</p></div><LoadingButton loading={pending === "create"} loadingLabel="Creating…" onClick={() => setDialog("create")}><Plus /> New playlist</LoadingButton></header>
+    <header><div><span>Your private collection</span><h1>My Playlists</h1><p>Create personal queues from published music across ShowMaster.</p></div><LoadingButton loading={pending === "create"} loadingLabel="Creating…" onClick={() => setDialog("create")}><Plus /> New playlist</LoadingButton></header>
     {error && <div className="studio-notice error" role="alert">{error}</div>}
     {!playlists.length ? <div className="studio-empty"><ListMusic /><h3>No playlists yet</h3><p>Save songs you love into your own private playlists.</p><button onClick={() => setDialog("create")}>Create your first playlist</button></div> : <section className="playlist-grid">{playlists.map((item) => <button onClick={() => navigate(`/app/playlists/${item.id}`)} key={item.id}><ListMusic /><strong>{item.name}</strong><small>{item.trackCount || 0} tracks · Private</small></button>)}</section>}
     <ActionDialog open={dialog === "create"} onOpenChange={(open) => !open && setDialog(null)} title="Create a playlist" description="Build a private collection from published tracks." label="Playlist name" placeholder="Late night discoveries" confirmLabel="Create playlist" loadingLabel="Creating…" busy={pending === "create"} onConfirm={submitDialog} />

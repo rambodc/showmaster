@@ -88,7 +88,7 @@ function ArtistOnboarding({ onCreated }) {
             <AudioLines />
           </span>
           <strong>
-            showmaster<em>.</em>
+            ShowMaster<em>.</em>
           </strong>
         </div>
         <span>Step 1 of 1</span>
@@ -185,7 +185,7 @@ function StudioSidebar({ view, setView, artist, logout }) {
           <AudioLines />
         </span>
         <strong>
-          showmaster<em>.</em>
+          ShowMaster<em>.</em>
         </strong>
       </div>
       <div className="creator-identity">
