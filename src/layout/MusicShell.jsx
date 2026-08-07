@@ -2,10 +2,14 @@ import { useState } from "react";
 import { AudioLines, Disc3, LayoutDashboard, Library, ListMusic, LogIn, LogOut, Menu, UserRound, UserPlus, X } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { LoadingButton } from "../components/ui/LoadingButton";
+import { useToast } from "../components/ui/Toast";
 
 export default function MusicShell() {
   const { user, profile, logout } = useAuth();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const close = () => setOpen(false);
   return <div className="music-shell">
     <header className="music-mobile-bar"><Link to="/library" className="music-shell__brand"><span><AudioLines /></span>showmaster<em>.</em></Link><button onClick={() => setOpen(!open)} aria-label={open ? "Close navigation" : "Open navigation"}>{open ? <X /> : <Menu />}</button></header>
@@ -21,7 +25,7 @@ export default function MusicShell() {
         {!user && <NavLink to="/register" onClick={close}><UserPlus /> Join Showmaster</NavLink>}
       </nav>
       {user && <div className="music-shell__storage"><Disc3 /><span><small>Creator storage</small><strong>{((profile?.storageBytes || 0) / 1024 ** 2).toFixed(1)} MB of 2 GB</strong></span></div>}
-      {user && <button className="music-shell__logout" onClick={logout}><LogOut /> Log out</button>}
+      {user && <LoadingButton className="music-shell__logout" loading={loggingOut} loadingLabel="Logging out…" onClick={async () => { setLoggingOut(true); try { await logout(); } catch { toast.error("You could not be logged out. Please try again."); setLoggingOut(false); } }}><LogOut /> Log out</LoadingButton>}
     </aside>
     {open && <button className="music-shell__scrim" aria-label="Close navigation" onClick={close} />}
     <div className="universal-main"><Outlet /></div>

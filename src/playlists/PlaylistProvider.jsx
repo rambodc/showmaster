@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { ListPlus, Plus, X } from "lucide-react";
+import { ListPlus, Plus } from "lucide-react";
 import { useAuth } from "../auth/AuthProvider";
+import { Dialog } from "../components/ui/Dialog";
+import { LoadingButton } from "../components/ui/LoadingButton";
+import { useToast } from "../components/ui/Toast";
 import { addTrackToPlaylist, createPlaylist, friendlyError } from "../lib/api";
 import { getMyPlaylists } from "../lib/catalog";
 
@@ -8,11 +11,12 @@ const PlaylistContext = createContext(null);
 
 export function PlaylistProvider({ children }) {
   const { user } = useAuth();
+  const toast = useToast();
   const [playlists, setPlaylists] = useState([]);
   const [track, setTrack] = useState(null);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState("");
   const load = useCallback(async () => {
     if (!user) { setPlaylists([]); return; }
     setPlaylists(await getMyPlaylists(user.uid));
@@ -25,38 +29,42 @@ export function PlaylistProvider({ children }) {
     return true;
   }, [user]);
   const add = async (playlistId) => {
-    setBusy(true); setError("");
+    setBusy(playlistId); setError("");
     try {
       await addTrackToPlaylist({ playlistId, releaseId: track.release?.id || track.releaseId, trackId: track.id || track.trackId });
       setTrack(null);
       await load();
-    } catch (reason) { setError(friendlyError(reason)); }
-    finally { setBusy(false); }
+      toast.success("Track added to playlist.");
+    } catch (reason) { const message = friendlyError(reason); setError(message); toast.error(message); }
+    finally { setBusy(""); }
   };
   const createAndAdd = async (event) => {
     event.preventDefault();
-    setBusy(true); setError("");
+    setBusy("create"); setError("");
     try {
       const created = await createPlaylist({ name });
       setName("");
-      await add(created.playlistId);
-    } catch (reason) { setError(friendlyError(reason)); setBusy(false); }
+      await addTrackToPlaylist({ playlistId: created.playlistId, releaseId: track.release?.id || track.releaseId, trackId: track.id || track.trackId });
+      await load();
+      setTrack(null);
+      toast.success("Playlist created and track added.");
+    } catch (reason) { const message = friendlyError(reason); setError(message); toast.error(message); }
+    finally { setBusy(""); }
   };
   const value = useMemo(() => ({ playlists, load, openAddToPlaylist }), [load, openAddToPlaylist, playlists]);
   return <PlaylistContext.Provider value={value}>
     {children}
-    {track && <div className="playlist-dialog" role="dialog" aria-modal="true" aria-labelledby="playlist-dialog-title">
-      <button className="playlist-dialog__backdrop" aria-label="Close add to playlist" onClick={() => setTrack(null)} />
-      <section>
-        <header><div><ListPlus /><div><h2 id="playlist-dialog-title">Add to playlist</h2><p>{track.title}</p></div></div><button onClick={() => setTrack(null)} aria-label="Close"><X /></button></header>
+    <Dialog open={Boolean(track)} onOpenChange={(open) => { if (!open && !busy) setTrack(null); }} preventClose={Boolean(busy)} title="Add to playlist" description={track?.title || "Choose a private playlist."} className="playlist-dialog-content">
+      {track && <div className="playlist-dialog-body">
+        <ListPlus className="playlist-dialog-icon" />
         {error && <p className="playlist-dialog__error" role="alert">{error}</p>}
         <div className="playlist-dialog__lists">
-          {playlists.map((playlist) => <button disabled={busy} onClick={() => add(playlist.id)} key={playlist.id}><span>{playlist.name}</span><small>{playlist.trackCount || 0} tracks</small></button>)}
+          {playlists.map((playlist) => <LoadingButton loading={busy === playlist.id} loadingLabel="Adding…" disabled={Boolean(busy)} onClick={() => add(playlist.id)} key={playlist.id}><span>{playlist.name}</span><small>{playlist.trackCount || 0} tracks</small></LoadingButton>)}
           {!playlists.length && <p>You have no playlists yet. Create one below.</p>}
         </div>
-        <form onSubmit={createAndAdd}><input required maxLength="80" value={name} onChange={(event) => setName(event.target.value)} placeholder="New playlist name" aria-label="New playlist name" /><button disabled={busy}><Plus /> Create and add</button></form>
-      </section>
-    </div>}
+        <form onSubmit={createAndAdd}><input required maxLength="80" value={name} onChange={(event) => setName(event.target.value)} placeholder="New playlist name" aria-label="New playlist name" /><LoadingButton loading={busy === "create"} loadingLabel="Creating…" disabled={Boolean(busy)}><Plus /> Create and add</LoadingButton></form>
+      </div>}
+    </Dialog>
   </PlaylistContext.Provider>;
 }
 

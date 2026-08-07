@@ -6,6 +6,7 @@ import { useAudio } from "../music/AudioProvider";
 import CatalogArtwork from "../music/CatalogArtwork";
 import { formatTime } from "../music/constants";
 import { AddToPlaylistButton } from "../playlists/PlaylistProvider";
+import { PageSkeleton } from "../components/ui/Skeleton";
 
 export default function ReleasePage() {
   const { releaseId } = useParams();
@@ -47,7 +48,7 @@ export default function ReleasePage() {
   );
   const releaseActive = audio.track?.release?.id === release?.id;
   const playRelease = () => releaseActive ? audio.toggle() : audio.playTracks(playable);
-  if (loading) return <div className="public-shell"><div className="catalog-state">Loading release…</div></div>;
+  if (loading) return <div className="public-shell"><PageSkeleton label="Loading release" /></div>;
   if (error) return <div className="public-shell"><div className="catalog-state error" role="alert">{error}</div></div>;
   if (!release) return <div className="public-shell"><div className="catalog-state">Release not found.</div></div>;
   return (

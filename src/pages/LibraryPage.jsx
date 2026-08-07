@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Sparkles } from "lucide-react";
 import ReleaseCard from "../components/ReleaseCard";
+import { PageSkeleton } from "../components/ui/Skeleton";
 import { getPublicReleases } from "../lib/catalog";
 
 export default function LibraryPage() {
@@ -79,7 +80,7 @@ export default function LibraryPage() {
           </div>
         </div>
         {loading && !releases.length && (
-          <div className="catalog-state">Loading the catalog…</div>
+          <PageSkeleton label="Loading the catalog" />
         )}
         {error && (
           <div className="catalog-state error" role="alert">

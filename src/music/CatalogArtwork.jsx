@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { mediaUrl } from "../lib/catalog";
 import MusicArtwork from "./MusicArtwork";
 
-export default function CatalogArtwork({ item, size = "card" }) {
+export default function CatalogArtwork({ item, size = "card", previewUrl = "" }) {
   const path = item.coverPath || item.avatarPath;
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -23,10 +23,10 @@ export default function CatalogArtwork({ item, size = "card" }) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [item.status, path]);
-  return url ? (
+  return previewUrl || url ? (
     <img
       className={`catalog-image catalog-image--${size}`}
-      src={url}
+      src={previewUrl || url}
       alt={`${item.title || item.name} artwork`}
     />
   ) : (

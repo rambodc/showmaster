@@ -21,6 +21,11 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { ActionDialog } from "../components/ui/ActionDialog";
+import { Dialog } from "../components/ui/Dialog";
+import { LoadingButton } from "../components/ui/LoadingButton";
+import { PageSkeleton } from "../components/ui/Skeleton";
+import { useToast } from "../components/ui/Toast";
 import {
   createRelease,
   createVirtualArtist,
@@ -308,11 +313,15 @@ function ReleaseForm({ initial = defaultRelease, onSave, onCancel }) {
 
 function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
   const audio = useAudio();
+  const toast = useToast();
   const [tracks, setTracks] = useState([]);
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(null);
   const [uploadTask, setUploadTask] = useState(null);
   const [error, setError] = useState("");
+  const [pending, setPending] = useState("");
+  const [dialog, setDialog] = useState(null);
+  const [imageUpload, setImageUpload] = useState(null);
   const load = useCallback(async () => {
     try {
       const values = await getReleaseTracks(release.id, ownerUid);
@@ -337,13 +346,21 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
       releaseTitle: release.title,
       release,
     }));
-  const action = async (fn) => {
+  useEffect(() => () => { if (imageUpload?.previewUrl) URL.revokeObjectURL(imageUpload.previewUrl); }, [imageUpload?.previewUrl]);
+  const action = async (key, fn, success) => {
+    if (pending) return false;
+    setPending(key);
     setError("");
     try {
       await fn();
       await onChanged();
+      if (success) toast.success(success);
+      return true;
     } catch (e) {
-      setError(friendlyError(e));
+      const message = friendlyError(e); setError(message); toast.error(message);
+      return false;
+    } finally {
+      setPending("");
     }
   };
   return (
@@ -369,38 +386,29 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
               </Link>
               <button
                 onClick={() =>
-                  action(() => unpublishRelease({ releaseId: release.id }))
+                  action("unpublish", () => unpublishRelease({ releaseId: release.id }), "Release moved back to drafts.")
                 }
+                disabled={Boolean(pending)}
               >
-                Unpublish to edit
+                {pending === "unpublish" ? "Unpublishing…" : "Unpublish to edit"}
               </button>
             </>
           ) : (
             <>
-              <button
-                onClick={async () => {
-                  const confirmation = window.prompt(
-                    "Type DELETE RELEASE to permanently remove this release and its files.",
-                  );
-                  if (confirmation !== "DELETE RELEASE") return;
-                  await action(() =>
-                    deleteRelease({ releaseId: release.id, confirmation }),
-                  );
-                  onBack();
-                }}
-              >
+              <LoadingButton loading={pending === "delete-release"} loadingLabel="Deleting…" disabled={Boolean(pending)} onClick={() => setDialog({ type: "delete-release" })}>
                 <Trash2 /> Delete
-              </button>
-              <button onClick={() => setEditing(true)}>
+              </LoadingButton>
+              <button disabled={Boolean(pending)} onClick={() => setEditing(true)}>
                 <Edit3 /> Edit details
               </button>
               <button
                 className="stream-primary"
                 onClick={() =>
-                  action(() => publishRelease({ releaseId: release.id }))
+                  action("publish", () => publishRelease({ releaseId: release.id }), "Release published successfully.")
                 }
+                disabled={Boolean(pending)}
               >
-                Publish release
+                {pending === "publish" ? "Publishing…" : "Publish release"}
               </button>
             </>
           )}
@@ -409,25 +417,45 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
       {error && <Notice error>{error}</Notice>}
       <section className="release-editor-grid">
         <div className="release-cover">
-          <CatalogArtwork item={release} size="hero" />
+          <div className="artwork-upload-stage">
+            <CatalogArtwork item={release} size="hero" previewUrl={imageUpload?.previewUrl} />
+            {imageUpload && <div className="artwork-progress" role="status"><strong>{imageUpload.status === "processing" ? "Processing image…" : `Uploading… ${imageUpload.progress}%`}</strong><i><b style={{ width: `${imageUpload.status === "processing" ? 100 : imageUpload.progress}%` }} /></i>{imageUpload.status === "uploading" && <button type="button" onClick={() => imageUpload.task?.cancel()} disabled={!imageUpload.task}>Cancel</button>}</div>}
+          </div>
           {!locked && (
             <label>
-              <Upload /> Upload cover
+              <Upload /> {imageUpload ? "Uploading cover…" : "Upload cover"}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
+                disabled={Boolean(imageUpload)}
                 onChange={async (event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
+                  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { setError("Artwork must be a JPEG, PNG, or WebP no larger than 5 MB."); event.target.value = ""; return; }
+                  const previewUrl = URL.createObjectURL(file);
+                  setImageUpload({ previewUrl, progress: 0, status: "uploading", task: null }); setError("");
                   try {
-                    await uploadImage({
+                    const prepared = await uploadImage({
                       targetType: "release",
                       targetId: release.id,
                       file,
+                      onProgress: (progress) => setImageUpload((value) => value && ({ ...value, progress })),
+                      onTask: (task) => setImageUpload((value) => value && ({ ...value, task })),
                     });
-                    await onChanged();
+                    setImageUpload((value) => value && ({ ...value, status: "processing", progress: 100, task: null }));
+                    let finalized = false;
+                    for (let attempt = 0; attempt < 15; attempt += 1) {
+                      const result = await onChanged();
+                      if (result?.releases?.find((item) => item.id === release.id)?.coverPath === prepared.storagePath) { finalized = true; break; }
+                      await new Promise((resolve) => window.setTimeout(resolve, 1000));
+                    }
+                    setImageUpload(null);
+                    toast.success(finalized ? "Cover artwork updated." : "Cover uploaded and is still processing.");
                   } catch (e) {
-                    setError(friendlyError(e));
+                    const message = e?.code === "storage/canceled" ? "Cover upload canceled." : friendlyError(e);
+                    setError(message); toast.error(message); setImageUpload(null);
+                  } finally {
+                    event.target.value = "";
                   }
                 }}
               />
@@ -471,8 +499,10 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                         onTask: setUploadTask,
                       });
                       await load();
+                      toast.success("Track uploaded and is being validated.");
                     } catch (e) {
-                      setError(friendlyError(e));
+                      const message = e?.code === "storage/canceled" ? "Track upload canceled." : friendlyError(e);
+                      setError(message); toast.error(message);
                     } finally {
                       setUploadTask(null);
                       setUploading(null);
@@ -550,7 +580,7 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                     aria-label={`Move ${track.title} up`}
                     disabled={index === 0}
                     onClick={() =>
-                      action(async () => {
+                        action(`track-${track.id}`, async () => {
                         const ids = tracks.map((item) => item.id);
                         [ids[index - 1], ids[index]] = [
                           ids[index],
@@ -570,7 +600,7 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                     aria-label={`Move ${track.title} down`}
                     disabled={index === tracks.length - 1}
                     onClick={() =>
-                      action(async () => {
+                      action(`track-${track.id}`, async () => {
                         const ids = tracks.map((item) => item.id);
                         [ids[index + 1], ids[index]] = [
                           ids[index],
@@ -588,32 +618,15 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                   </button>
                   <button
                     aria-label={`Rename ${track.title}`}
-                    onClick={() =>
-                      action(async () => {
-                        const title = window.prompt("Track title", track.title);
-                        if (!title) return;
-                        await updateTrack({
-                          releaseId: release.id,
-                          trackId: track.id,
-                          title,
-                        });
-                        await load();
-                      })
-                    }
+                    disabled={Boolean(pending)}
+                    onClick={() => setDialog({ type: "rename-track", track })}
                   >
                     <Edit3 />
                   </button>
                   <button
                     aria-label={`Delete ${track.title}`}
-                    onClick={() =>
-                      action(async () => {
-                        await deleteTrack({
-                          releaseId: release.id,
-                          trackId: track.id,
-                        });
-                        await load();
-                      })
-                    }
+                    disabled={Boolean(pending)}
+                    onClick={() => setDialog({ type: "delete-track", track })}
                   >
                     <Trash2 />
                   </button>
@@ -623,11 +636,7 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
           ))}
         </div>
       </section>
-      {editing && (
-        <div className="studio-modal">
-          <button aria-label="Close" onClick={() => setEditing(false)} />
-          <div>
-            <h2>Edit release</h2>
+      <Dialog open={editing} onOpenChange={setEditing} title="Edit release" description="Update the details listeners see when this release is published.">
             <ReleaseForm
               initial={release}
               onCancel={() => setEditing(false)}
@@ -639,11 +648,13 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                 });
                 setEditing(false);
                 await onChanged();
+                toast.success("Release details saved.");
               }}
             />
-          </div>
-        </div>
-      )}
+      </Dialog>
+      <ActionDialog open={dialog?.type === "delete-release"} onOpenChange={(open) => !open && setDialog(null)} title="Delete this release?" description="This permanently removes the release, its tracks, and artwork." label="Confirmation" confirmationText="DELETE RELEASE" confirmLabel="Delete release" loadingLabel="Deleting…" destructive busy={pending === "delete-release"} onConfirm={async (confirmation) => { const done = await action("delete-release", () => deleteRelease({ releaseId: release.id, confirmation }), "Release deleted."); if (done) { setDialog(null); onBack(); } }} />
+      <ActionDialog open={dialog?.type === "rename-track"} onOpenChange={(open) => !open && setDialog(null)} title="Rename track" description="Update how this track appears on the release." initialValue={dialog?.track?.title || ""} label="Track title" confirmLabel="Save title" loadingLabel="Saving…" busy={pending === `track-${dialog?.track?.id}`} onConfirm={async (title) => { const track = dialog.track; const done = await action(`track-${track.id}`, async () => { await updateTrack({ releaseId: release.id, trackId: track.id, title }); await load(); }, "Track renamed."); if (done) setDialog(null); }} />
+      <Dialog open={dialog?.type === "delete-track"} onOpenChange={(open) => { if (!open && !pending) setDialog(null); }} title="Remove this track?" description={`“${dialog?.track?.title || "This track"}” and its uploaded audio will be permanently deleted.`} preventClose={Boolean(pending)}><div className="confirm-dialog-actions"><button className="secondary" disabled={Boolean(pending)} onClick={() => setDialog(null)}>Cancel</button><LoadingButton className="danger-confirm" loading={pending === `track-${dialog?.track?.id}`} loadingLabel="Deleting…" onClick={async () => { const track = dialog.track; const done = await action(`track-${track.id}`, async () => { await deleteTrack({ releaseId: release.id, trackId: track.id }); await load(); }, "Track deleted."); if (done) setDialog(null); }}>Delete track</LoadingButton></div></Dialog>
     </main>
   );
 }
@@ -651,6 +662,7 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
 export default function DashboardPage({ initialView = "overview" }) {
   const { user, profile, logout, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const { releaseId } = useParams();
   const [artist, setArtist] = useState(null);
   const [releases, setReleases] = useState([]);
@@ -675,6 +687,7 @@ export default function DashboardPage({ initialView = "overview" }) {
         setSelected((value) => releaseId
           ? releaseValues.find((item) => item.id === releaseId) || null
           : value ? releaseValues.find((item) => item.id === value.id) || null : null);
+        return { artist: artistValue, releases: releaseValues };
       } catch {
         setError("Your creator workspace could not be loaded.");
       } finally {
@@ -687,7 +700,7 @@ export default function DashboardPage({ initialView = "overview" }) {
   useEffect(() => {
     load();
   }, [load]);
-  if (loading) return <div className="catalog-state">Opening your studio…</div>;
+  if (loading) return <PageSkeleton label="Opening your studio" />;
   if (!profile?.artistId && !artist)
     return (
       <ArtistOnboarding
@@ -832,57 +845,74 @@ export default function DashboardPage({ initialView = "overview" }) {
           </section>
         )}
       </main>
-      {creating && (
-        <div className="studio-modal">
-          <button aria-label="Close" onClick={() => setCreating(false)} />
-          <div>
-            <h2>Create a release</h2>
-            <p>
-              Start as a private draft. Nothing is public until you publish it.
-            </p>
+      <Dialog open={creating} onOpenChange={setCreating} title="Create a release" description="Start as a private draft. Nothing is public until you publish it.">
             <ReleaseForm
               onCancel={() => setCreating(false)}
               onSave={async (form) => {
                 const result = await createRelease(form);
                 setCreating(false);
                 await load(artist.id);
+                toast.success("Release created.");
                 navigate(`/app/releases/${result.releaseId}`);
               }}
             />
-          </div>
-        </div>
-      )}
+      </Dialog>
     </div>
   );
 }
 
 function ArtistSettings({ artist, onSaved, onDeleted }) {
   const [form, setForm] = useState(artist);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [imageUpload, setImageUpload] = useState(null);
+  const toast = useToast();
+  useEffect(() => setForm(artist), [artist]);
+  useEffect(() => () => { if (imageUpload?.previewUrl) URL.revokeObjectURL(imageUpload.previewUrl); }, [imageUpload?.previewUrl]);
   const set = (key) => (event) =>
     setForm((value) => ({ ...value, [key]: event.target.value }));
   return (
     <section className="artist-settings">
       <div className="artist-settings__visual">
-        <CatalogArtwork item={artist} size="hero" />
+        <div className="artwork-upload-stage">
+          <CatalogArtwork item={artist} size="hero" previewUrl={imageUpload?.previewUrl} />
+          {imageUpload && <div className="artwork-progress" role="status"><strong>{imageUpload.status === "processing" ? "Processing image…" : `Uploading… ${imageUpload.progress}%`}</strong><i><b style={{ width: `${imageUpload.status === "processing" ? 100 : imageUpload.progress}%` }} /></i>{imageUpload.status === "uploading" && <button type="button" onClick={() => imageUpload.task?.cancel()} disabled={!imageUpload.task}>Cancel</button>}</div>}
+        </div>
         <label>
-          <Upload /> Change avatar
+          <Upload /> {imageUpload ? "Uploading avatar…" : "Change avatar"}
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            disabled={Boolean(imageUpload)}
             onChange={async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
+              if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { setError("Artwork must be a JPEG, PNG, or WebP no larger than 5 MB."); event.target.value = ""; return; }
+              const previewUrl = URL.createObjectURL(file);
+              setImageUpload({ previewUrl, progress: 0, status: "uploading", task: null }); setError("");
               try {
-                await uploadImage({
+                const prepared = await uploadImage({
                   targetType: "artist",
                   targetId: artist.id,
                   file,
+                  onProgress: (progress) => setImageUpload((value) => value && ({ ...value, progress })),
+                  onTask: (task) => setImageUpload((value) => value && ({ ...value, task })),
                 });
-                setMessage("Avatar uploaded and is processing.");
+                setImageUpload((value) => value && ({ ...value, status: "processing", progress: 100, task: null }));
+                let finalized = false;
+                for (let attempt = 0; attempt < 15; attempt += 1) {
+                  const result = await onSaved();
+                  if (result?.artist?.avatarPath === prepared.storagePath) { finalized = true; break; }
+                  await new Promise((resolve) => window.setTimeout(resolve, 1000));
+                }
+                setImageUpload(null);
+                toast.success(finalized ? "Artist avatar updated." : "Avatar uploaded and is still processing.");
               } catch (e) {
-                setError(friendlyError(e));
+                const message = e?.code === "storage/canceled" ? "Avatar upload canceled." : friendlyError(e);
+                setError(message); toast.error(message); setImageUpload(null);
+              } finally {
+                event.target.value = "";
               }
             }}
           />
@@ -891,23 +921,24 @@ function ArtistSettings({ artist, onSaved, onDeleted }) {
       <form
         onSubmit={async (event) => {
           event.preventDefault();
+          if (busy) return;
+          setBusy("save");
           setError("");
           try {
             await updateVirtualArtist({
               ...form,
               avatarPath: artist.avatarPath || "",
             });
-            setMessage("Artist profile saved.");
             await onSaved();
+            toast.success("Artist profile saved.");
           } catch (e) {
-            setError(friendlyError(e));
-          }
+            const message = friendlyError(e); setError(message); toast.error(message);
+          } finally { setBusy(""); }
         }}
       >
         <h2>Virtual Artist identity</h2>
         <p>This information appears publicly with every published release.</p>
         {error && <Notice error>{error}</Notice>}
-        {message && <Notice>{message}</Notice>}
         <Field label="Artist name">
           <input
             required
@@ -933,26 +964,12 @@ function ArtistSettings({ artist, onSaved, onDeleted }) {
             onChange={set("bio")}
           />
         </Field>
-        <button className="stream-primary">Save profile</button>
-        <button
-          type="button"
-          className="danger-button"
-          onClick={async () => {
-            const confirmation = window.prompt(
-              "Unpublish every release first. Type DELETE ARTIST to permanently remove this artist and all files.",
-            );
-            if (confirmation !== "DELETE ARTIST") return;
-            try {
-              await deleteVirtualArtist({ confirmation });
-              await onDeleted();
-            } catch (e) {
-              setError(friendlyError(e));
-            }
-          }}
-        >
+        <LoadingButton className="stream-primary" loading={busy === "save"} loadingLabel="Saving profile…" disabled={Boolean(busy)}>Save profile</LoadingButton>
+        <button type="button" className="danger-button" disabled={Boolean(busy)} onClick={() => setDeleteOpen(true)}>
           <Trash2 /> Delete Virtual Artist
         </button>
       </form>
+      <ActionDialog open={deleteOpen} onOpenChange={setDeleteOpen} title="Delete your Virtual Artist?" description="Unpublish every release first. This permanently removes the artist and all associated files." label="Confirmation" confirmationText="DELETE ARTIST" confirmLabel="Delete artist" loadingLabel="Deleting…" destructive busy={busy === "delete"} onConfirm={async (confirmation) => { setBusy("delete"); setError(""); try { await deleteVirtualArtist({ confirmation }); toast.success("Virtual Artist deleted."); setDeleteOpen(false); await onDeleted(); } catch (e) { const message = friendlyError(e); setError(message); toast.error(message); } finally { setBusy(""); } }} />
     </section>
   );
 }

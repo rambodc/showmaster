@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import ReleaseCard from "../components/ReleaseCard";
 import { getArtistBySlug, getArtistReleases } from "../lib/catalog";
+import { PageSkeleton } from "../components/ui/Skeleton";
 import CatalogArtwork from "../music/CatalogArtwork";
 
 export default function ArtistPage() {
@@ -24,7 +25,7 @@ export default function ArtistPage() {
       .finally(() => live && setLoading(false));
     return () => { live = false; };
   }, [slug]);
-  if (loading) return <div className="public-shell"><div className="catalog-state">Loading artist…</div></div>;
+  if (loading) return <div className="public-shell"><PageSkeleton label="Loading artist" /></div>;
   if (error) return <div className="public-shell"><div className="catalog-state error" role="alert">{error}</div></div>;
   if (!artist) return <div className="public-shell"><div className="catalog-state">Virtual Artist not found.</div></div>;
   return (
