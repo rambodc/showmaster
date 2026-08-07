@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   ArrowDown,
   ArrowUp,
-  AudioLines,
   CheckCircle2,
   Disc3,
   Edit3,
@@ -26,6 +25,7 @@ import { Dialog } from "../components/ui/Dialog";
 import { LoadingButton } from "../components/ui/LoadingButton";
 import { PageSkeleton } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/Toast";
+import LogoMark from "../components/LogoMark";
 import {
   createRelease,
   createVirtualArtist,
@@ -84,9 +84,7 @@ function ArtistOnboarding({ onCreated }) {
     <div className="onboarding-shell">
       <header>
         <div className="music-brand">
-          <span>
-            <AudioLines />
-          </span>
+          <LogoMark />
           <strong>
             ShowMaster<em>.</em>
           </strong>
@@ -181,9 +179,7 @@ function StudioSidebar({ view, setView, artist, logout }) {
   return (
     <aside className="creator-sidebar">
       <div className="music-brand">
-        <span>
-          <AudioLines />
-        </span>
+        <LogoMark />
         <strong>
           ShowMaster<em>.</em>
         </strong>

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { AudioLines, Disc3, LayoutDashboard, Library, ListMusic, LogIn, LogOut, Menu, UserRound, UserPlus, X } from "lucide-react";
+import { Disc3, LayoutDashboard, Library, ListMusic, LogIn, LogOut, Menu, UserRound, UserPlus, X } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { LoadingButton } from "../components/ui/LoadingButton";
 import { useToast } from "../components/ui/Toast";
+import LogoMark from "../components/LogoMark";
 
 export default function MusicShell() {
   const { user, profile, logout } = useAuth();
@@ -12,9 +13,9 @@ export default function MusicShell() {
   const [loggingOut, setLoggingOut] = useState(false);
   const close = () => setOpen(false);
   return <div className="music-shell">
-    <header className="music-mobile-bar"><Link to="/library" className="music-shell__brand"><span><AudioLines /></span>ShowMaster<em>.</em></Link><button onClick={() => setOpen(!open)} aria-label={open ? "Close navigation" : "Open navigation"}>{open ? <X /> : <Menu />}</button></header>
+    <header className="music-mobile-bar"><Link to="/library" className="music-shell__brand"><LogoMark />ShowMaster<em>.</em></Link><button onClick={() => setOpen(!open)} aria-label={open ? "Close navigation" : "Open navigation"}>{open ? <X /> : <Menu />}</button></header>
     <aside className={`music-sidebar${open ? " open" : ""}`}>
-      <Link to="/library" className="music-shell__brand" onClick={close}><span><AudioLines /></span>ShowMaster<em>.</em></Link>
+      <Link to="/library" className="music-shell__brand" onClick={close}><LogoMark />ShowMaster<em>.</em></Link>
       {user && <div className="music-shell__identity"><div>{(user.displayName || user.email || "S").slice(0, 1).toUpperCase()}</div><span><small>Signed in</small><strong>{user.displayName || user.email}</strong></span></div>}
       <nav aria-label="Music application">
         {user && <NavLink end to="/app" onClick={close}><LayoutDashboard /> Overview</NavLink>}
