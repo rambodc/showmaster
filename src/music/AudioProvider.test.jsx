@@ -194,4 +194,41 @@ describe("AudioProvider", () => {
     expect(screen.getAllByText("0:00")).toHaveLength(2);
     expect(screen.getAllByRole("slider", { name: "Playback position" })).toHaveLength(1);
   });
+
+  test("desktop compact player opens the shared full-screen player", async () => {
+    setMobile(false);
+    render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    await screen.findByRole("button", { name: "Open Now Playing" });
+    expect(screen.getByRole("button", { name: "Expand Now Playing" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
+    expect(screen.getByRole("dialog", { name: "Music player" })).toHaveClass("is-desktop");
+    expect(screen.getByRole("slider", { name: "Volume" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Playback queue")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Minimize player" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Music player" })).not.toBeInTheDocument());
+    expect(screen.getByTestId("state")).toHaveTextContent("one:playing");
+  });
+
+  test("mobile swipe opens and minimizes without hijacking playback controls", async () => {
+    setMobile(true);
+    render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    const identity = await screen.findByRole("button", { name: "Open Now Playing" });
+    fireEvent.pointerDown(identity, { pointerId: 7, pointerType: "touch", clientX: 120, clientY: 220 });
+    fireEvent.pointerMove(identity, { pointerId: 7, pointerType: "touch", clientX: 121, clientY: 125 });
+    fireEvent.pointerUp(identity, { pointerId: 7, pointerType: "touch", clientX: 121, clientY: 125 });
+    const fullPlayer = await screen.findByRole("dialog", { name: "Music player" });
+    const playButton = screen.getByRole("button", { name: "Pause" });
+    fireEvent.pointerDown(playButton, { pointerId: 8, pointerType: "touch", clientX: 120, clientY: 120 });
+    fireEvent.pointerMove(playButton, { pointerId: 8, pointerType: "touch", clientX: 120, clientY: 230 });
+    fireEvent.pointerUp(playButton, { pointerId: 8, pointerType: "touch", clientX: 120, clientY: 230 });
+    expect(screen.getByRole("dialog", { name: "Music player" })).toBeInTheDocument();
+    const artwork = fullPlayer.querySelector(".mobile-player__artwork");
+    fireEvent.pointerDown(artwork, { pointerId: 9, pointerType: "touch", clientX: 120, clientY: 100 });
+    fireEvent.pointerMove(artwork, { pointerId: 9, pointerType: "touch", clientX: 121, clientY: 195 });
+    fireEvent.pointerUp(artwork, { pointerId: 9, pointerType: "touch", clientX: 121, clientY: 195 });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Music player" })).not.toBeInTheDocument());
+    expect(screen.getByTestId("state")).toHaveTextContent("one:playing");
+  });
 });

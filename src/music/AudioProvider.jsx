@@ -54,6 +54,8 @@ export function AudioProvider({ children }) {
   const minimizeRef = useRef(null);
   const playerRef = useRef(null);
   const compactTitleRef = useRef(null);
+  const gestureRef = useRef(null);
+  const suppressClickRef = useRef(false);
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -165,7 +167,7 @@ export function AudioProvider({ children }) {
   );
 
   useEffect(() => {
-    if (!expanded || !isMobile) return undefined;
+    if (!expanded) return undefined;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     minimizeRef.current?.focus();
@@ -182,7 +184,7 @@ export function AudioProvider({ children }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
-  }, [expanded, collapsing, isMobile, minimizePlayer]);
+  }, [expanded, collapsing, minimizePlayer]);
 
   const detachSource = useCallback(() => {
     const element = audioRef.current;
@@ -291,8 +293,71 @@ export function AudioProvider({ children }) {
     [track?.id],
   );
 
+  const gestureStart = useCallback((event) => {
+    if (!isMobile || event.pointerType === "mouse") return;
+    const interactive = event.target.closest("button, input, a, [role='menuitem'], .mobile-player__queue, .dialog-content");
+    const identity = event.target.closest(".mobile-player__identity");
+    if (interactive && !identity) return;
+    if (expanded && playerRef.current?.scrollTop > 0) return;
+    gestureRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, time: performance.now(), locked: false, delta: 0 };
+  }, [expanded, isMobile]);
+
+  const gestureMove = useCallback((event) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (!gesture.locked) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
+      if (Math.abs(dx) >= Math.abs(dy) || (expanded ? dy <= 0 : dy >= 0)) {
+        gestureRef.current = null;
+        return;
+      }
+      gesture.locked = true;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      event.currentTarget.classList.add("is-gesture-dragging");
+    }
+    event.preventDefault();
+    const directional = expanded ? Math.max(0, dy) : Math.min(0, dy);
+    gesture.delta = directional;
+    const resisted = directional * (1 - Math.min(Math.abs(directional), 500) / 1400);
+    event.currentTarget.style.setProperty("--sheet-drag-y", `${resisted}px`);
+  }, [expanded]);
+
+  const gestureEnd = useCallback((event) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    gestureRef.current = null;
+    const element = event.currentTarget;
+    element.releasePointerCapture?.(event.pointerId);
+    element.classList.remove("is-gesture-dragging");
+    const distance = Math.abs(gesture.delta);
+    const velocity = distance / Math.max(1, performance.now() - gesture.time);
+    const complete = gesture.locked && (distance >= 70 || velocity >= 0.65);
+    element.style.removeProperty("--sheet-drag-y");
+    if (complete) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => { suppressClickRef.current = false; }, 300);
+      if (expanded) minimizePlayer(); else openPlayer();
+    } else if (gesture.locked) {
+      element.classList.add("is-gesture-rebounding");
+      window.setTimeout(() => element.classList.remove("is-gesture-rebounding"), 220);
+    }
+  }, [expanded, minimizePlayer, openPlayer]);
+
+  const gestureCancel = useCallback((event) => {
+    if (gestureRef.current?.pointerId !== event.pointerId) return;
+    gestureRef.current = null;
+    event.currentTarget.classList.remove("is-gesture-dragging");
+    event.currentTarget.style.removeProperty("--sheet-drag-y");
+  }, []);
+
+  const openFromClick = useCallback(() => {
+    if (!suppressClickRef.current) openPlayer();
+  }, [openPlayer]);
+
   useEffect(() => {
-    if (!isMobile || expanded || !track) {
+    if (expanded || !track) {
       setTitleOverflowing(false);
       return undefined;
     }
@@ -417,38 +482,38 @@ export function AudioProvider({ children }) {
           setError("This track could not be played.");
         }}
       />
-      {track && (
-        isMobile ? (
-          <section ref={playerRef} className={`mobile-player${expanded ? " is-expanded" : ""}${collapsing ? " is-collapsing" : ""}${playing ? " is-playing" : " is-paused"}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
-            {expanded ? <>
-              <header className="mobile-player__header"><button ref={minimizeRef} onClick={minimizePlayer} aria-label="Minimize player"><ChevronDown /></button><strong>Now Playing</strong><i /></header>
-              <div className={`mobile-player__artwork${playing ? " is-playing" : ""}`}><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="hero" /></div>
-              <div className="mobile-player__details"><strong>{track.title}</strong><span>{track.artistName || track.artist}</span><small>{queue.length > 1 ? `${index + 1} of ${queue.length}` : "Single track"}{track.access === "private-preview" ? " · Private preview" : ""}</small></div>
-              <label className="mobile-player__seek mobile-player__seek--expanded"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
-              <div className="mobile-player__controls"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>
-              <div className="mobile-player__actions"><AddToPlaylistButton track={track}>Add to playlist</AddToPlaylistButton></div>
-              {queue.length > 1 && <aside className="mobile-player__queue" aria-label="Playback queue"><header><strong>Up next</strong><span>{queue.length} tracks</span></header>{queue.map((item, itemIndex) => { const active = itemIndex === index; return <button className={`${active ? "active" : ""}${playbackState(active)}`} aria-current={active ? "true" : undefined} aria-label={`${active && loading ? "Loading" : active && playing ? "Pause" : "Play"} ${item.title}`} onClick={() => active ? toggle() : selectTrack(itemIndex)} key={`${item.release?.id || item.releaseId}-${item.id}`}><span className="mobile-player__queue-control">{active && loading ? <LoaderCircle className="audio-loading-spinner" /> : active && playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div></button>; })}</aside>}
-            </> : <>
-              <button type="button" className="mobile-player__expand-cue" onClick={openPlayer} aria-label="Expand Now Playing"><ChevronUp /></button>
-              <div className="mobile-player__toprow">
-                <button type="button" className="mobile-player__identity" onClick={openPlayer} aria-label="Open Now Playing"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><span><strong ref={compactTitleRef} className={titleOverflowing ? `is-marquee${playing ? " is-running" : ""}` : ""} title={track.title}><span><i>{track.title}</i>{titleOverflowing && <i aria-hidden="true">{track.title}</i>}</span></strong><small>{track.artistName || track.artist}</small></span></button>
-                <div className="mobile-player__controls mobile-player__controls--compact"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>
-              </div>
-              <label className="mobile-player__seek"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
-            </>}
-            {error && <div className="mobile-player__error" role="alert"><span>{error}</span><button onClick={retry}><RotateCcw /> Retry</button>{hasNext && <button onClick={next}>Next</button>}</div>}
-            {loading && <span className="sr-only" role="status" aria-live="polite">Loading audio</span>}
-          </section>
-        ) : (
-          <section className="real-player" aria-label="Music player">
-            <div className="real-player__track"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><div><strong title={track.title}>{track.title}</strong><span>{track.artistName || track.artist}</span>{track.access === "private-preview" && <small>Private preview · only you</small>}</div></div>
-            <div className="real-player__center"><div><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="real-play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div><label className="real-player__progress"><span>{formatTime(currentTime)}</span><span className="sr-only">Playback position</span><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>{loading && <span className="sr-only" role="status" aria-live="polite">Loading audio</span>}</div>
-            <div className="real-player__tools"><AddToPlaylistButton track={track} /><button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button><input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(event.target.value)} />{queue.length > 1 && <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>}<button onClick={close} aria-label="Close player"><X /></button></div>
-            {error && <div className="real-player__error" role="alert"><span>{error}</span><button onClick={retry}><RotateCcw /> Retry</button>{hasNext && <button onClick={next}>Next track</button>}</div>}
-            {queueOpen && queue.length > 1 && <aside className="real-queue" aria-label="Playback queue"><header><strong>Queue</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></header>{queue.map((item, itemIndex) => { const active = itemIndex === index; return <div className={`real-queue__item${active ? " active" : ""}${playbackState(active)}`} key={`${item.release?.id || item.releaseId}-${item.id}`}><button aria-current={active ? "true" : undefined} aria-label={`${active && loading ? "Loading" : active && playing ? "Pause" : "Play"} ${item.title}`} onClick={() => active ? toggle() : selectTrack(itemIndex)}><span className="real-queue__control">{active && loading ? <LoaderCircle className="audio-loading-spinner" /> : active && playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div></button><AddToPlaylistButton track={item} /></div>; })}</aside>}
-          </section>
-        )
-      )}
+      {track && (expanded ? (
+        <section ref={playerRef} className={`mobile-player is-expanded${!isMobile ? " is-desktop" : ""}${collapsing ? " is-collapsing" : ""}${playing ? " is-playing" : " is-paused"}`} aria-label="Music player" role="dialog" aria-modal="true" onPointerDown={gestureStart} onPointerMove={gestureMove} onPointerUp={gestureEnd} onPointerCancel={gestureCancel}>
+          <div className="mobile-player__content">
+            <header className="mobile-player__header"><button ref={minimizeRef} onClick={minimizePlayer} aria-label="Minimize player"><ChevronDown /></button><strong>Now Playing</strong><i /></header>
+            <div className={`mobile-player__artwork${playing ? " is-playing" : ""}`}><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="hero" /></div>
+            <div className="mobile-player__details"><strong>{track.title}</strong><span>{track.artistName || track.artist}</span><small>{queue.length > 1 ? `${index + 1} of ${queue.length}` : "Single track"}{track.releaseTitle ? ` · ${track.releaseTitle}` : ""}{track.access === "private-preview" ? " · Private preview" : ""}</small></div>
+            <label className="mobile-player__seek mobile-player__seek--expanded"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
+            <div className="mobile-player__controls"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>
+            <div className="mobile-player__actions"><AddToPlaylistButton track={track}>Add to playlist</AddToPlaylistButton></div>
+            {!isMobile && <div className="mobile-player__desktop-volume"><button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button><input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(event.target.value)} /></div>}
+            {queue.length > 1 && <aside className="mobile-player__queue" aria-label="Playback queue"><header><strong>Up next</strong><span>{queue.length} tracks</span></header>{queue.map((item, itemIndex) => { const active = itemIndex === index; return <button className={`${active ? "active" : ""}${playbackState(active)}`} aria-current={active ? "true" : undefined} aria-label={`${active && loading ? "Loading" : active && playing ? "Pause" : "Play"} ${item.title}`} onClick={() => active ? toggle() : selectTrack(itemIndex)} key={`${item.release?.id || item.releaseId}-${item.id}`}><span className="mobile-player__queue-control">{active && loading ? <LoaderCircle className="audio-loading-spinner" /> : active && playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div></button>; })}</aside>}
+          </div>
+          {error && <div className="mobile-player__error" role="alert"><span>{error}</span><button onClick={retry}><RotateCcw /> Retry</button>{hasNext && <button onClick={next}>Next</button>}</div>}
+          {loading && <span className="sr-only" role="status" aria-live="polite">Loading audio</span>}
+        </section>
+      ) : isMobile ? (
+        <section ref={playerRef} className={`mobile-player${playing ? " is-playing" : " is-paused"}`} aria-label="Music player" onPointerDown={gestureStart} onPointerMove={gestureMove} onPointerUp={gestureEnd} onPointerCancel={gestureCancel}>
+          <button type="button" className="mobile-player__expand-cue" onClick={openFromClick} aria-label="Expand Now Playing"><ChevronUp /></button>
+          <div className="mobile-player__toprow"><button type="button" className="mobile-player__identity" onClick={openFromClick} aria-label="Open Now Playing"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><span><strong ref={compactTitleRef} className={titleOverflowing ? `is-marquee${playing ? " is-running" : ""}` : ""} title={track.title}><span><i>{track.title}</i>{titleOverflowing && <i aria-hidden="true">{track.title}</i>}</span></strong><small>{track.artistName || track.artist}</small></span></button><div className="mobile-player__controls mobile-player__controls--compact"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div></div>
+          <label className="mobile-player__seek"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
+          {error && <div className="mobile-player__error" role="alert"><span>{error}</span><button onClick={retry}><RotateCcw /> Retry</button>{hasNext && <button onClick={next}>Next</button>}</div>}
+        </section>
+      ) : (
+        <section className={`real-player${playing ? " is-playing" : " is-paused"}`} aria-label="Music player">
+          <button type="button" className="real-player__expand-cue" onClick={openFromClick} aria-label="Expand Now Playing"><ChevronUp /></button>
+          <button type="button" className="real-player__track" onClick={openFromClick} aria-label="Open Now Playing"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><div><strong ref={compactTitleRef} className={titleOverflowing ? `is-marquee${playing ? " is-running" : ""}` : ""} title={track.title}><span><i>{track.title}</i>{titleOverflowing && <i aria-hidden="true">{track.title}</i>}</span></strong><span>{track.artistName || track.artist}</span>{track.access === "private-preview" && <small>Private preview · only you</small>}</div></button>
+          <div className="real-player__center"><div><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="real-play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div><label className="real-player__progress"><span>{formatTime(currentTime)}</span><span className="sr-only">Playback position</span><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>{loading && <span className="sr-only" role="status" aria-live="polite">Loading audio</span>}</div>
+          <div className="real-player__tools"><AddToPlaylistButton track={track} /><button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button><input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(event.target.value)} />{queue.length > 1 && <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>}<button onClick={close} aria-label="Close player"><X /></button></div>
+          {error && <div className="real-player__error" role="alert"><span>{error}</span><button onClick={retry}><RotateCcw /> Retry</button>{hasNext && <button onClick={next}>Next track</button>}</div>}
+          {queueOpen && queue.length > 1 && <aside className="real-queue" aria-label="Playback queue"><header><strong>Queue</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></header>{queue.map((item, itemIndex) => { const active = itemIndex === index; return <div className={`real-queue__item${active ? " active" : ""}${playbackState(active)}`} key={`${item.release?.id || item.releaseId}-${item.id}`}><button aria-current={active ? "true" : undefined} aria-label={`${active && loading ? "Loading" : active && playing ? "Pause" : "Play"} ${item.title}`} onClick={() => active ? toggle() : selectTrack(itemIndex)}><span className="real-queue__control">{active && loading ? <LoaderCircle className="audio-loading-spinner" /> : active && playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div></button><AddToPlaylistButton track={item} /></div>; })}</aside>}
+        </section>
+      ))}
     </AudioContext.Provider>
   );
 }
