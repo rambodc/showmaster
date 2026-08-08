@@ -1,4 +1,4 @@
-import { Clock3, Pause, Play } from "lucide-react";
+import { Clock3, LoaderCircle, Pause, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getArtist, getRelease, getReleaseTracks } from "../lib/catalog";
@@ -71,11 +71,12 @@ export default function ReleasePage() {
           <header><span>#</span><span aria-hidden="true" /><span>Track</span><Clock3 /></header>
           {tracks.map((track, index) => {
             const active = audio.isTrackActive(track.id);
+            const trackLoading = active && audio.loading;
             const playableTrack = playable.find((item) => item.id === track.id);
             return <article className={`public-track-row${active ? " active" : ""}`} key={track.id}>
-              <button className="public-track-row__main" onClick={() => active ? audio.toggle() : audio.playTracks(playable, track.id)} aria-label={`${active && audio.playing ? "Pause" : "Play"} ${track.title}`}>
+              <button className="public-track-row__main" onClick={() => active ? audio.toggle() : audio.playTracks(playable, track.id)} aria-label={`${trackLoading ? "Loading" : active && audio.playing ? "Pause" : "Play"} ${track.title}`}>
                 <span className="public-track-row__number">{String(index + 1).padStart(2, "0")}</span>
-                <span className="public-track-row__play">{active && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span>
+                <span className="public-track-row__play">{trackLoading ? <LoaderCircle className="audio-loading-spinner" /> : active && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span>
                 <span className="public-track-row__details"><strong>{track.title}</strong><small>{artist?.name}</small></span>
               </button>
               <time>{formatTime(track.durationSeconds || 0)}</time>

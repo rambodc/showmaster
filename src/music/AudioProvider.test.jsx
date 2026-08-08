@@ -1,10 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { mediaUrl } from "../lib/catalog";
 import { AudioProvider, useAudio } from "./AudioProvider";
 
 vi.mock("../lib/catalog", () => ({ mediaUrl: vi.fn() }));
-vi.mock("../playlists/PlaylistProvider", () => ({ AddToPlaylistButton: () => null }));
+vi.mock("../playlists/PlaylistProvider", () => ({
+  AddToPlaylistButton: ({ children }) => <button type="button">{children || "Add to playlist"}</button>,
+}));
 
 const tracks = [
   { id: "one", title: "First", artistName: "Nova", status: "ready", storagePath: "one.mp3", access: "public" },
@@ -122,6 +124,24 @@ describe("AudioProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
     expect(screen.getByLabelText("Playback queue")).toBeInTheDocument();
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause First" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Play Second" })).toBeInTheDocument();
+  });
+
+  test("mobile loading stays inside controls and the full playlist action is one button", async () => {
+    setMobile(true);
+    let resolveMedia;
+    mediaUrl.mockReturnValue(new Promise((resolve) => { resolveMedia = resolve; }));
+    const { container } = render(<AudioProvider><Harness items={[tracks[0]]} /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    expect(await screen.findByRole("button", { name: "Loading audio" })).toBeInTheDocument();
+    expect(container.querySelector(".mobile-player__status")).not.toBeInTheDocument();
+    expect(container.querySelector(".mobile-player__play .audio-loading-spinner")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
+    const playlistButton = screen.getByRole("button", { name: "Add to playlist" });
+    expect(playlistButton.parentElement).toHaveClass("mobile-player__actions");
+    expect(playlistButton.parentElement.children).toHaveLength(1);
+    await act(async () => resolveMedia("https://media.test/one.mp3"));
   });
 
   test("compact mobile player exposes controls, timestamps, and one seek input", async () => {

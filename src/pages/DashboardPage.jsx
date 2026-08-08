@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileAudio,
   LayoutDashboard,
+  LoaderCircle,
   LogOut,
   Pause,
   Play,
@@ -541,7 +542,9 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                 className="creator-track__main"
                 disabled={track.status !== "ready" || !track.storagePath}
                 aria-label={
-                  audio.isTrackActive(track.id) && audio.playing
+                  audio.isTrackActive(track.id) && audio.loading
+                    ? `Loading ${track.title}`
+                    : audio.isTrackActive(track.id) && audio.playing
                     ? `Pause ${track.title}`
                     : `Play ${track.title}`
                 }
@@ -551,7 +554,7 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                 }}
               >
                 <span>{String(index + 1).padStart(2, "0")}</span>
-                <i className="creator-track__play">{audio.isTrackActive(track.id) && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</i>
+                <i className="creator-track__play">{audio.isTrackActive(track.id) && audio.loading ? <LoaderCircle className="audio-loading-spinner" /> : audio.isTrackActive(track.id) && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</i>
                 <span className="creator-track__details">
                   <strong>{track.title}</strong>
                   <small className={`track-status ${track.status}`}>{track.status}{track.rejectionReason ? ` · ${track.rejectionReason}` : ""}</small>
