@@ -77,8 +77,8 @@ export default function ReleasePage() {
                 <span className="public-track-row__number">{String(index + 1).padStart(2, "0")}</span>
                 <span className="public-track-row__play">{active && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span>
                 <span className="public-track-row__details"><strong>{track.title}</strong><small>{artist?.name}</small></span>
-                <time>{formatTime(track.durationSeconds || 0)}</time>
               </button>
+              <time>{formatTime(track.durationSeconds || 0)}</time>
               <AddToPlaylistButton track={playableTrack} className="public-track-row__playlist" />
             </article>;
           })}

@@ -59,6 +59,18 @@ describe("AudioProvider", () => {
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
   });
 
+  test("mute and volume controls update the real audio element", async () => {
+    const { container } = render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    await screen.findByRole("button", { name: "Mute" });
+    fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+    await waitFor(() => expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("0"));
+    expect(container.querySelector("audio").volume).toBe(0);
+    fireEvent.click(screen.getByRole("button", { name: "Unmute" }));
+    await waitFor(() => expect(Number(screen.getByRole("slider", { name: "Volume" }).value)).toBeGreaterThan(0));
+    expect(container.querySelector("audio").volume).toBeGreaterThan(0);
+  });
+
   test("rapid selection detaches the old source and ignores a stale URL response", async () => {
     let resolveFirst;
     let resolveSecond;
@@ -84,22 +96,22 @@ describe("AudioProvider", () => {
   test("single-track Now Playing has useful controls without an empty queue", async () => {
     render(<AudioProvider><Harness items={[tracks[0]]} /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
-    await screen.findByRole("button", { name: "Expand player" });
-    fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
+    await screen.findByRole("button", { name: "Open Now Playing" });
+    fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
     expect(screen.getByRole("dialog", { name: "Music player" })).toBeInTheDocument();
     expect(screen.getByText("Now Playing")).toBeInTheDocument();
     expect(screen.getByText("Single track")).toBeInTheDocument();
     expect(screen.queryByLabelText("Playback queue")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Minimize player" }));
-    expect(screen.queryByRole("dialog", { name: "Music player" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Music player" })).not.toBeInTheDocument());
     expect(screen.getByTestId("state")).toHaveTextContent("one:playing");
   });
 
   test("multi-track Now Playing exposes the queue", async () => {
     render(<AudioProvider><Harness /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
-    await screen.findByRole("button", { name: "Expand player" });
-    fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
+    await screen.findByRole("button", { name: "Open Now Playing" });
+    fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
     expect(screen.getByLabelText("Playback queue")).toBeInTheDocument();
     expect(screen.getByText("1 of 2 · Queue")).toBeInTheDocument();
   });

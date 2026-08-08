@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   ChevronDown,
-  ChevronUp,
   ListMusic,
   Pause,
   Play,
@@ -63,10 +62,17 @@ export function AudioProvider({ children }) {
   const [error, setError] = useState("");
   const [queueOpen, setQueueOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [collapsing, setCollapsing] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const track = queue[index] || null;
   const hasPrevious = index > 0;
   const hasNext = index < queue.length - 1;
+  const openPlayer = () => { setCollapsing(false); setExpanded(true); };
+  const minimizePlayer = () => {
+    if (collapsing) return;
+    setCollapsing(true);
+    window.setTimeout(() => { setExpanded(false); setCollapsing(false); }, 260);
+  };
 
   useEffect(() => {
     let live = true;
@@ -144,7 +150,7 @@ export function AudioProvider({ children }) {
     document.body.style.overflow = "hidden";
     minimizeRef.current?.focus();
     const onKeyDown = (event) => {
-      if (event.key === "Escape") setExpanded(false);
+      if (event.key === "Escape") minimizePlayer();
       if (event.key === "Tab") {
         const controls = [...(playerRef.current?.querySelectorAll("button:not(:disabled), input:not(:disabled)") || [])].filter((control) => control.offsetParent !== null || control === document.activeElement);
         if (!controls.length) return;
@@ -156,7 +162,7 @@ export function AudioProvider({ children }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
-  }, [expanded]);
+  }, [expanded, collapsing]);
 
   const detachSource = useCallback(() => {
     const element = audioRef.current;
@@ -339,13 +345,13 @@ export function AudioProvider({ children }) {
         }}
       />
       {track && (
-        <section ref={playerRef} className={`real-player${expanded ? " expanded" : ""}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
+        <section ref={playerRef} className={`real-player${expanded ? " expanded" : ""}${collapsing ? " collapsing" : ""}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
           <header className="real-player__sheet-head">
-            <button ref={minimizeRef} onClick={() => setExpanded(false)} aria-label="Minimize player"><ChevronDown /></button>
+            <button ref={minimizeRef} onClick={minimizePlayer} aria-label="Minimize player"><ChevronDown /></button>
             <span>Now Playing</span>
-            <button onClick={close} aria-label="Close player"><X /></button>
+            <i aria-hidden="true" />
           </header>
-          <div className="real-player__track">
+          <button type="button" className="real-player__track" onClick={() => !expanded && openPlayer()} aria-label={expanded ? undefined : "Open Now Playing"}>
             <MusicArtwork
               release={track.release || {
                 color: "art-glass",
@@ -360,7 +366,7 @@ export function AudioProvider({ children }) {
               <em>{queue.length > 1 ? `${index + 1} of ${queue.length} · Queue` : "Single track"}</em>
               {track.access === "private-preview" && <small>Private preview · only you</small>}
             </div>
-          </div>
+          </button>
           <div className="real-player__center">
             <div>
               <button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button>
@@ -372,7 +378,7 @@ export function AudioProvider({ children }) {
             <label className="real-player__progress">
               <span>{formatTime(currentTime)}</span>
               <span className="sr-only">Playback position</span>
-              <input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} />
+              <input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onInput={(event) => seek(event.currentTarget.value)} onChange={(event) => seek(event.target.value)} />
               <span>{formatTime(duration)}</span>
             </label>
             {loading && <small role="status">Loading audio…</small>}
@@ -380,9 +386,8 @@ export function AudioProvider({ children }) {
           <div className="real-player__tools">
             <AddToPlaylistButton track={track} />
             <button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button>
-            <input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(event.target.value)} />
+            <input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onInput={(event) => setVolume(event.currentTarget.value)} onChange={(event) => setVolume(event.target.value)} />
             {queue.length > 1 && <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>}
-            <button className="real-player__expand" onClick={() => setExpanded(!expanded)} aria-label={expanded ? "Collapse player" : "Expand player"}>{expanded ? <ChevronDown /> : <ChevronUp />}</button>
             <button onClick={close} aria-label="Close player"><X /></button>
           </div>
           {error && (
