@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   ChevronDown,
+  ChevronUp,
   LoaderCircle,
   ListMusic,
   Pause,
@@ -52,12 +53,7 @@ export function AudioProvider({ children }) {
   const previousVolumeRef = useRef(DEFAULT_VOLUME);
   const minimizeRef = useRef(null);
   const playerRef = useRef(null);
-  const webAudioContextRef = useRef(null);
-  const mediaSourceRef = useRef(null);
-  const analyserRef = useRef(null);
-  const analyserDataRef = useRef(null);
-  const analyserFrameRef = useRef(0);
-  const analyserEnergyRef = useRef(0);
+  const compactTitleRef = useRef(null);
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -72,7 +68,7 @@ export function AudioProvider({ children }) {
   const [collapsing, setCollapsing] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia?.("(max-width: 760px)").matches || false);
   const [retryKey, setRetryKey] = useState(0);
-  const [analyserReady, setAnalyserReady] = useState(false);
+  const [titleOverflowing, setTitleOverflowing] = useState(false);
   const track = queue[index] || null;
   const hasPrevious = index > 0;
   const hasNext = index < queue.length - 1;
@@ -164,43 +160,9 @@ export function AudioProvider({ children }) {
   useEffect(
     () => () => {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-      window.cancelAnimationFrame(analyserFrameRef.current);
-      webAudioContextRef.current?.close?.().catch?.(() => {});
     },
     [],
   );
-
-  const ensureAnalyser = useCallback(() => {
-    if (analyserRef.current) {
-      webAudioContextRef.current?.resume?.().catch?.(() => {});
-      return true;
-    }
-    const Context = window.AudioContext || window.webkitAudioContext;
-    const element = audioRef.current;
-    if (!Context || !element) return false;
-    let context;
-    let source;
-    try {
-      context = new Context();
-      source = context.createMediaElementSource(element);
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.82;
-      source.connect(analyser);
-      analyser.connect(context.destination);
-      webAudioContextRef.current = context;
-      mediaSourceRef.current = source;
-      analyserRef.current = analyser;
-      analyserDataRef.current = new Uint8Array(analyser.frequencyBinCount);
-      setAnalyserReady(true);
-      context.resume?.().catch?.(() => {});
-      return true;
-    } catch {
-      try { source?.connect?.(context?.destination); } catch { context?.close?.().catch?.(() => {}); }
-      setAnalyserReady(false);
-      return false;
-    }
-  }, []);
 
   useEffect(() => {
     if (!expanded || !isMobile) return undefined;
@@ -222,47 +184,6 @@ export function AudioProvider({ children }) {
     return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
   }, [expanded, collapsing, isMobile, minimizePlayer]);
 
-  useEffect(() => {
-    window.cancelAnimationFrame(analyserFrameRef.current);
-    const artwork = playerRef.current?.querySelector(".mobile-player__artwork");
-    if (!expanded || !isMobile || !playing || !analyserReady || !analyserRef.current || !artwork) {
-      analyserEnergyRef.current = 0;
-      artwork?.style.setProperty("--audio-scale", "1");
-      artwork?.style.setProperty("--audio-energy", "0");
-      artwork?.style.setProperty("--audio-lift", "18px");
-      artwork?.style.setProperty("--audio-blur", "25px");
-      return undefined;
-    }
-    const analyser = analyserRef.current;
-    const data = analyserDataRef.current;
-    const context = webAudioContextRef.current;
-    const binWidth = context.sampleRate / analyser.fftSize;
-    const startBin = Math.max(1, Math.floor(38 / binWidth));
-    const endBin = Math.min(data.length - 1, Math.ceil(180 / binWidth));
-    const renderEnergy = () => {
-      analyser.getByteFrequencyData(data);
-      let sum = 0;
-      for (let bin = startBin; bin <= endBin; bin += 1) sum += data[bin];
-      const raw = sum / Math.max(1, endBin - startBin + 1) / 255;
-      const shaped = Math.min(1, Math.max(0, (raw - 0.06) / 0.52));
-      analyserEnergyRef.current += (shaped - analyserEnergyRef.current) * 0.18;
-      const energy = analyserEnergyRef.current;
-      artwork.style.setProperty("--audio-energy", energy.toFixed(3));
-      artwork.style.setProperty("--audio-scale", (1 + energy * 0.045).toFixed(4));
-      artwork.style.setProperty("--audio-lift", `${18 + energy * 13}px`);
-      artwork.style.setProperty("--audio-blur", `${25 + energy * 18}px`);
-      analyserFrameRef.current = window.requestAnimationFrame(renderEnergy);
-    };
-    renderEnergy();
-    return () => {
-      window.cancelAnimationFrame(analyserFrameRef.current);
-      artwork.style.setProperty("--audio-scale", "1");
-      artwork.style.setProperty("--audio-energy", "0");
-      artwork.style.setProperty("--audio-lift", "18px");
-      artwork.style.setProperty("--audio-blur", "25px");
-    };
-  }, [analyserReady, expanded, isMobile, playing, track?.id]);
-
   const detachSource = useCallback(() => {
     const element = audioRef.current;
     requestRef.current += 1;
@@ -277,7 +198,6 @@ export function AudioProvider({ children }) {
   }, []);
   const play = useCallback(() => {
     if (!track) return;
-    ensureAnalyser();
     autoplayRef.current = true;
     setError("");
     setPlaying(true);
@@ -287,7 +207,7 @@ export function AudioProvider({ children }) {
         setPlaying(false);
         setError("Playback was blocked. Press play to try again.");
       });
-  }, [ensureAnalyser, sourceReady, track]);
+  }, [sourceReady, track]);
   const pause = useCallback(() => {
     autoplayRef.current = false;
     transitioningRef.current = false;
@@ -338,7 +258,6 @@ export function AudioProvider({ children }) {
       (item) => item.status === "ready" && item.storagePath,
     );
     if (!playable.length) return false;
-    ensureAnalyser();
     autoplayRef.current = true;
     detachSource();
     const requestedIndex = playable.findIndex((item) => item.id === startId);
@@ -349,7 +268,7 @@ export function AudioProvider({ children }) {
     setError("");
     setLoading(true);
     return true;
-  }, [detachSource, ensureAnalyser]);
+  }, [detachSource]);
   const retry = useCallback(() => {
     autoplayRef.current = true;
     detachSource();
@@ -371,6 +290,58 @@ export function AudioProvider({ children }) {
     (trackId) => track?.id === trackId,
     [track?.id],
   );
+
+  useEffect(() => {
+    if (!isMobile || expanded || !track) {
+      setTitleOverflowing(false);
+      return undefined;
+    }
+    const title = compactTitleRef.current;
+    if (!title) return undefined;
+    const measure = () => setTitleOverflowing(title.scrollWidth > title.clientWidth + 2);
+    measure();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measure) : null;
+    observer?.observe(title);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [expanded, isMobile, track]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return undefined;
+    const session = navigator.mediaSession;
+    if (track && typeof MediaMetadata === "function") {
+      session.metadata = new MediaMetadata({
+        title: track.title || "Untitled track",
+        artist: track.artistName || track.artist || "ShowMaster artist",
+        album: track.releaseTitle || track.release?.title || "ShowMaster",
+      });
+    } else if (!track) session.metadata = null;
+    const handlers = {
+      play,
+      pause,
+      previoustrack: hasPrevious ? previous : null,
+      nexttrack: hasNext ? next : null,
+      seekto: (details) => {
+        if (typeof details.seekTime === "number") seek(details.seekTime);
+      },
+      seekbackward: (details) => seek((audioRef.current?.currentTime || 0) - (details.seekOffset || 10)),
+      seekforward: (details) => seek((audioRef.current?.currentTime || 0) + (details.seekOffset || 10)),
+    };
+    Object.entries(handlers).forEach(([action, handler]) => {
+      try { session.setActionHandler(action, handler); } catch { /* Unsupported action. */ }
+    });
+    return () => Object.keys(handlers).forEach((action) => {
+      try { session.setActionHandler(action, null); } catch { /* Unsupported action. */ }
+    });
+  }, [hasNext, hasPrevious, next, pause, play, previous, seek, track]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    try { navigator.mediaSession.playbackState = playing ? "playing" : "paused"; } catch { /* Optional API. */ }
+  }, [playing]);
 
   const value = useMemo(
     () => ({
@@ -416,7 +387,7 @@ export function AudioProvider({ children }) {
       {children}
       <audio
         ref={audioRef}
-        crossOrigin="anonymous"
+        playsInline
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => {
@@ -448,18 +419,19 @@ export function AudioProvider({ children }) {
       />
       {track && (
         isMobile ? (
-          <section ref={playerRef} className={`mobile-player${expanded ? " is-expanded" : ""}${collapsing ? " is-collapsing" : ""}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
+          <section ref={playerRef} className={`mobile-player${expanded ? " is-expanded" : ""}${collapsing ? " is-collapsing" : ""}${playing ? " is-playing" : " is-paused"}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
             {expanded ? <>
               <header className="mobile-player__header"><button ref={minimizeRef} onClick={minimizePlayer} aria-label="Minimize player"><ChevronDown /></button><strong>Now Playing</strong><i /></header>
-              <div className={`mobile-player__artwork${playing ? " is-playing" : ""}${analyserReady ? " is-reactive" : ""}`}><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="hero" /></div>
+              <div className={`mobile-player__artwork${playing ? " is-playing" : ""}`}><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="hero" /></div>
               <div className="mobile-player__details"><strong>{track.title}</strong><span>{track.artistName || track.artist}</span><small>{queue.length > 1 ? `${index + 1} of ${queue.length}` : "Single track"}{track.access === "private-preview" ? " · Private preview" : ""}</small></div>
               <label className="mobile-player__seek mobile-player__seek--expanded"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
               <div className="mobile-player__controls"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>
               <div className="mobile-player__actions"><AddToPlaylistButton track={track}>Add to playlist</AddToPlaylistButton></div>
               {queue.length > 1 && <aside className="mobile-player__queue" aria-label="Playback queue"><header><strong>Up next</strong><span>{queue.length} tracks</span></header>{queue.map((item, itemIndex) => { const active = itemIndex === index; return <button className={`${active ? "active" : ""}${playbackState(active)}`} aria-current={active ? "true" : undefined} aria-label={`${active && loading ? "Loading" : active && playing ? "Pause" : "Play"} ${item.title}`} onClick={() => active ? toggle() : selectTrack(itemIndex)} key={`${item.release?.id || item.releaseId}-${item.id}`}><span className="mobile-player__queue-control">{active && loading ? <LoaderCircle className="audio-loading-spinner" /> : active && playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div></button>; })}</aside>}
             </> : <>
+              <button type="button" className="mobile-player__expand-cue" onClick={openPlayer} aria-label="Expand Now Playing"><ChevronUp /></button>
               <div className="mobile-player__toprow">
-                <button type="button" className="mobile-player__identity" onClick={openPlayer} aria-label="Open Now Playing"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><span><strong title={track.title}>{track.title}</strong><small>{track.artistName || track.artist}</small></span></button>
+                <button type="button" className="mobile-player__identity" onClick={openPlayer} aria-label="Open Now Playing"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><span><strong ref={compactTitleRef} className={titleOverflowing ? `is-marquee${playing ? " is-running" : ""}` : ""} title={track.title}><span><i>{track.title}</i>{titleOverflowing && <i aria-hidden="true">{track.title}</i>}</span></strong><small>{track.artistName || track.artist}</small></span></button>
                 <div className="mobile-player__controls mobile-player__controls--compact"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>
               </div>
               <label className="mobile-player__seek"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>

@@ -12,7 +12,7 @@ import {
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ArrowLeft, Edit3, GripVertical, ListMusic, ListPlus, LoaderCircle, MoreVertical, Pause, Play, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit3, GripVertical, ListMusic, ListPlus, LoaderCircle, MoreHorizontal, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { ActionDialog } from "../components/ui/ActionDialog";
@@ -28,7 +28,7 @@ import { formatTime } from "../music/constants";
 
 function OptionsMenu({ label, children }) {
   return <DropdownMenu.Root>
-    <DropdownMenu.Trigger className="playlist-options-trigger" aria-label={label}><MoreVertical /></DropdownMenu.Trigger>
+    <DropdownMenu.Trigger className="playlist-options-trigger" aria-label={label}><MoreHorizontal /></DropdownMenu.Trigger>
     <DropdownMenu.Portal><DropdownMenu.Content className="playlist-options-menu" sideOffset={7} align="end" collisionPadding={12}>{children}</DropdownMenu.Content></DropdownMenu.Portal>
   </DropdownMenu.Root>;
 }

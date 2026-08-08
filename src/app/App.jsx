@@ -10,6 +10,7 @@ import ArtistPage from '../pages/ArtistPage';
 import ReleasePage from '../pages/ReleasePage';
 import MusicShell from '../layout/MusicShell';
 import PlaylistsPage from '../pages/PlaylistsPage';
+import RouteScrollRestoration from '../layout/RouteScrollRestoration';
 
 function PublicOnly({ children }) {
   const { user } = useAuth();
@@ -19,7 +20,7 @@ function PublicOnly({ children }) {
 export default function App() {
   const { user } = useAuth();
   return (
-    <Routes>
+    <><RouteScrollRestoration /><Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
@@ -34,6 +35,6 @@ export default function App() {
         <Route path="/app/playlists/:playlistId" element={<ProtectedRoute><PlaylistsPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to={user ? '/app' : '/'} replace />} />
-    </Routes>
+    </Routes></>
   );
 }

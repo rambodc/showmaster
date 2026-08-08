@@ -142,27 +142,27 @@ describe("AudioProvider", () => {
     expect(screen.getByRole("button", { name: "Play First" }).parentElement).toHaveClass("is-paused");
   });
 
-  test("creates one reusable analyser and marks full artwork as reactive", async () => {
+  test("keeps native audio output and registers lock-screen media controls", async () => {
     setMobile(true);
-    const analyser = { fftSize: 0, smoothingTimeConstant: 0, frequencyBinCount: 64, connect: vi.fn(), getByteFrequencyData: vi.fn((data) => data.fill(80)) };
-    const source = { connect: vi.fn() };
-    const context = { sampleRate: 48000, destination: {}, state: "running", createMediaElementSource: vi.fn(() => source), createAnalyser: vi.fn(() => analyser), resume: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
-    const Context = vi.fn(() => context);
+    const Context = vi.fn();
+    const setActionHandler = vi.fn();
     window.AudioContext = Context;
-    const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
-    const { container, unmount } = render(<AudioProvider><Harness /></AudioProvider>);
+    Object.defineProperty(navigator, "mediaSession", { configurable: true, value: { setActionHandler, metadata: null, playbackState: "none" } });
+    window.MediaMetadata = class MediaMetadata { constructor(data) { Object.assign(this, data); } };
+    const { container } = render(<AudioProvider><Harness /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
     await screen.findByRole("button", { name: "Open Now Playing" });
     fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
-    await waitFor(() => expect(container.querySelector(".mobile-player__artwork")).toHaveClass("is-reactive"));
-    expect(context.createMediaElementSource).toHaveBeenCalledTimes(1);
-    expect(container.querySelector("audio")).toHaveAttribute("crossorigin", "anonymous");
-    expect(frame).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
-    fireEvent.click(screen.getByRole("button", { name: "Play" }));
-    expect(context.createMediaElementSource).toHaveBeenCalledTimes(1);
-    unmount();
-    frame.mockRestore();
+    expect(container.querySelector(".mobile-player__artwork")).toHaveClass("is-playing");
+    expect(container.querySelector("audio")).not.toHaveAttribute("crossorigin");
+    expect(container.querySelector("audio")).toHaveAttribute("playsinline");
+    expect(Context).not.toHaveBeenCalled();
+    expect(setActionHandler).toHaveBeenCalledWith("play", expect.any(Function));
+    expect(setActionHandler).toHaveBeenCalledWith("pause", expect.any(Function));
+    expect(setActionHandler).toHaveBeenCalledWith("nexttrack", expect.any(Function));
+    expect(navigator.mediaSession.metadata.title).toBe("First");
+    delete navigator.mediaSession;
+    delete window.MediaMetadata;
     delete window.AudioContext;
   });
 
@@ -187,6 +187,7 @@ describe("AudioProvider", () => {
     render(<AudioProvider><Harness /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
     expect(await screen.findByRole("button", { name: "Open Now Playing" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expand Now Playing" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous track" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next track" })).toBeInTheDocument();
