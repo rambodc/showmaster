@@ -55,7 +55,7 @@ export default function ReleasePage() {
     <div className="public-shell">
       <main className="release-public">
         <section className="release-public__hero">
-          <CatalogArtwork item={release} size="hero" />
+          <div className="release-hero-artwork"><CatalogArtwork item={release} size="hero" /><span className="artwork-type-badge">{release.type}</span></div>
           <div>
             <span>{release.type} · {release.genre}</span>
             <h1>{release.title}</h1>

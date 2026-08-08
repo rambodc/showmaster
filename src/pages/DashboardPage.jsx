@@ -18,7 +18,7 @@ import {
   Upload,
   UserRound,
 } from "lucide-react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { ActionDialog } from "../components/ui/ActionDialog";
 import { Dialog } from "../components/ui/Dialog";
@@ -660,6 +660,7 @@ export default function DashboardPage({ initialView = "overview" }) {
   const navigate = useNavigate();
   const toast = useToast();
   const { releaseId } = useParams();
+  const location = useLocation();
   const [artist, setArtist] = useState(null);
   const [releases, setReleases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -680,9 +681,9 @@ export default function DashboardPage({ initialView = "overview" }) {
         ]);
         setArtist({ ...artistValue, storageBytes: profile?.storageBytes || 0 });
         setReleases(releaseValues);
-        setSelected((value) => releaseId
+        setSelected(releaseId
           ? releaseValues.find((item) => item.id === releaseId) || null
-          : value ? releaseValues.find((item) => item.id === value.id) || null : null);
+          : null);
         return { artist: artistValue, releases: releaseValues };
       } catch {
         setError("Your creator workspace could not be loaded.");
@@ -696,6 +697,9 @@ export default function DashboardPage({ initialView = "overview" }) {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    if (!loading && location.hash === "#releases") document.getElementById("releases")?.scrollIntoView({ block: "start" });
+  }, [loading, location.hash]);
   if (loading) return <PageSkeleton label="Opening your studio" />;
   if (!profile?.artistId && !artist)
     return (
@@ -713,7 +717,7 @@ export default function DashboardPage({ initialView = "overview" }) {
           release={selected}
           artist={artist}
           ownerUid={user.uid}
-          onBack={() => navigate("/app/profile")}
+          onBack={() => navigate("/app/profile#releases")}
           onChanged={() => load(artist.id)}
         />
       </div>
@@ -802,7 +806,7 @@ export default function DashboardPage({ initialView = "overview" }) {
           />
         )}
         {(view === "overview" || view === "profile") && (
-          <section className="creator-releases">
+          <section className="creator-releases" id="releases">
             <header>
               <div>
                 <span>
@@ -827,13 +831,10 @@ export default function DashboardPage({ initialView = "overview" }) {
                 {releases.map((release) => (
                   <button onClick={() => navigate(`/app/releases/${release.id}`)} key={release.id}>
                     <CatalogArtwork item={release} />
-                    <span className={`release-state ${release.status}`}>
-                      {release.status}
-                    </span>
+                    <span className="artwork-type-badge">{release.type}</span>
+                    <span className={`release-state ${release.status}`}>{release.status}</span>
                     <strong>{release.title}</strong>
-                    <small>
-                      {release.type} · {release.genre}
-                    </small>
+                    <small>{release.genre}</small>
                   </button>
                 ))}
               </div>

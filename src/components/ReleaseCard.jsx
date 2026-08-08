@@ -27,13 +27,14 @@ export default function ReleaseCard({ release }) {
     <article className={`public-release-card${active ? " active" : ""}`}>
       <div>
         <Link to={`/release/${release.id}`}><CatalogArtwork item={release} /></Link>
+        <span className="artwork-type-badge">{release.type || "Release"}</span>
         <button onClick={() => play().catch(() => undefined)} aria-label={`${active && audio.playing ? "Pause" : "Play"} ${release.title}`}>
           {active && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         </button>
       </div>
       <Link to={`/release/${release.id}`}><strong>{release.title}</strong></Link>
       {release.artist && <Link to={`/artist/${release.artist.slug}`}>{release.artist.name}</Link>}
-      <span>{release.type} · {release.genre}</span>
+      <span>{release.genre}</span>
     </article>
   );
 }

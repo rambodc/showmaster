@@ -13,13 +13,24 @@ export default function MusicShell() {
   const [loggingOut, setLoggingOut] = useState(false);
   const close = () => setOpen(false);
   return <div className="music-shell">
-    <header className="music-mobile-bar"><Link to="/library" className="music-shell__brand"><LogoMark />ShowMaster<em>.</em></Link><button onClick={() => setOpen(!open)} aria-label={open ? "Close navigation" : "Open navigation"}>{open ? <X /> : <Menu />}</button></header>
-    <aside className={`music-sidebar${open ? " open" : ""}`}>
-      <Link to="/library" className="music-shell__brand" onClick={close}><LogoMark />ShowMaster<em>.</em></Link>
+    <header className="music-mobile-bar">
+      <Link to="/library" className="music-shell__brand"><LogoMark light /><span>ShowMaster<em>.</em></span></Link>
+      <nav className="music-mobile-tabs" aria-label="Primary mobile navigation">
+        {user && <NavLink end to="/app" aria-label="Overview"><LayoutDashboard /></NavLink>}
+        {user && <NavLink to="/app/profile" aria-label="My Profile"><UserRound /></NavLink>}
+        {user && <NavLink to="/app/playlists" aria-label="My Playlists"><ListMusic /></NavLink>}
+        <NavLink to="/library" aria-label="Public Library"><Library /></NavLink>
+        {!user && <NavLink to="/login" aria-label="Log in"><LogIn /></NavLink>}
+        {!user && <NavLink to="/register" aria-label="Register"><UserPlus /></NavLink>}
+      </nav>
+      <button className="music-mobile-menu" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="music-sidebar" aria-label={open ? "Close navigation" : "Open navigation"}>{open ? <X /> : <Menu />}</button>
+    </header>
+    <aside id="music-sidebar" className={`music-sidebar${open ? " open" : ""}`}>
+      <Link to="/library" className="music-shell__brand" onClick={close}><LogoMark light />ShowMaster<em>.</em></Link>
       {user && <div className="music-shell__identity"><div>{(user.displayName || user.email || "S").slice(0, 1).toUpperCase()}</div><span><small>Signed in</small><strong>{user.displayName || user.email}</strong></span></div>}
       <nav aria-label="Music application">
         {user && <NavLink end to="/app" onClick={close}><LayoutDashboard /> Overview</NavLink>}
-        {user && profile?.artistId && <NavLink to="/app/profile" onClick={close}><UserRound /> My Profile</NavLink>}
+        {user && <NavLink to="/app/profile" onClick={close}><UserRound /> My Profile</NavLink>}
         {user && <NavLink to="/app/playlists" onClick={close}><ListMusic /> My Playlists</NavLink>}
         <NavLink to="/library" onClick={close}><Library /> Public Library</NavLink>
         {!user && <NavLink to="/login" onClick={close}><LogIn /> Log in</NavLink>}

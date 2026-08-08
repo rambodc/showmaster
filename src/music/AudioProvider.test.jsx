@@ -80,4 +80,27 @@ describe("AudioProvider", () => {
     resolveFirst("https://media.test/one.mp3");
     await waitFor(() => expect(container.querySelector("audio").src).toContain("two.mp3"));
   });
+
+  test("single-track Now Playing has useful controls without an empty queue", async () => {
+    render(<AudioProvider><Harness items={[tracks[0]]} /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    await screen.findByRole("button", { name: "Expand player" });
+    fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
+    expect(screen.getByRole("dialog", { name: "Music player" })).toBeInTheDocument();
+    expect(screen.getByText("Now Playing")).toBeInTheDocument();
+    expect(screen.getByText("Single track")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Playback queue")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Minimize player" }));
+    expect(screen.queryByRole("dialog", { name: "Music player" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("state")).toHaveTextContent("one:playing");
+  });
+
+  test("multi-track Now Playing exposes the queue", async () => {
+    render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    await screen.findByRole("button", { name: "Expand player" });
+    fireEvent.click(screen.getByRole("button", { name: "Expand player" }));
+    expect(screen.getByLabelText("Playback queue")).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 · Queue")).toBeInTheDocument();
+  });
 });

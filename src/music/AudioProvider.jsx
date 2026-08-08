@@ -50,6 +50,8 @@ export function AudioProvider({ children }) {
   const autoplayRef = useRef(false);
   const transitioningRef = useRef(false);
   const previousVolumeRef = useRef(DEFAULT_VOLUME);
+  const minimizeRef = useRef(null);
+  const playerRef = useRef(null);
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -135,6 +137,26 @@ export function AudioProvider({ children }) {
     },
     [],
   );
+
+  useEffect(() => {
+    if (!expanded || (window.matchMedia && !window.matchMedia("(max-width: 760px)").matches)) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    minimizeRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setExpanded(false);
+      if (event.key === "Tab") {
+        const controls = [...(playerRef.current?.querySelectorAll("button:not(:disabled), input:not(:disabled)") || [])].filter((control) => control.offsetParent !== null || control === document.activeElement);
+        if (!controls.length) return;
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
+  }, [expanded]);
 
   const detachSource = useCallback(() => {
     const element = audioRef.current;
@@ -317,7 +339,12 @@ export function AudioProvider({ children }) {
         }}
       />
       {track && (
-        <section className={`real-player${expanded ? " expanded" : ""}`} aria-label="Music player">
+        <section ref={playerRef} className={`real-player${expanded ? " expanded" : ""}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
+          <header className="real-player__sheet-head">
+            <button ref={minimizeRef} onClick={() => setExpanded(false)} aria-label="Minimize player"><ChevronDown /></button>
+            <span>Now Playing</span>
+            <button onClick={close} aria-label="Close player"><X /></button>
+          </header>
           <div className="real-player__track">
             <MusicArtwork
               release={track.release || {
@@ -328,8 +355,9 @@ export function AudioProvider({ children }) {
               size="mini"
             />
             <div>
-              <strong>{track.title}</strong>
+              <strong className={playing ? "is-playing" : ""} title={track.title}><span>{track.title}</span></strong>
               <span>{track.artistName || track.artist}</span>
+              <em>{queue.length > 1 ? `${index + 1} of ${queue.length} · Queue` : "Single track"}</em>
               {track.access === "private-preview" && <small>Private preview · only you</small>}
             </div>
           </div>
@@ -353,7 +381,7 @@ export function AudioProvider({ children }) {
             <AddToPlaylistButton track={track} />
             <button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button>
             <input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(event.target.value)} />
-            <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>
+            {queue.length > 1 && <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>}
             <button className="real-player__expand" onClick={() => setExpanded(!expanded)} aria-label={expanded ? "Collapse player" : "Expand player"}>{expanded ? <ChevronDown /> : <ChevronUp />}</button>
             <button onClick={close} aria-label="Close player"><X /></button>
           </div>
@@ -364,7 +392,7 @@ export function AudioProvider({ children }) {
               {hasNext && <button onClick={next}>Next track</button>}
             </div>
           )}
-          {queueOpen && (
+          {(queueOpen || expanded) && queue.length > 1 && (
             <aside className="real-queue" aria-label="Playback queue">
               <header><strong>Queue</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></header>
               {queue.map((item, itemIndex) => (
