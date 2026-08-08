@@ -15,6 +15,16 @@ const tracks = [
 const setMobile = (matches) => {
   window.matchMedia = vi.fn().mockReturnValue({ matches, addEventListener: vi.fn(), removeEventListener: vi.fn() });
 };
+const dispatchTouch = (target, type, touches, changedTouches = touches) => {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    touches: { value: touches },
+    changedTouches: { value: changedTouches },
+  });
+  target.dispatchEvent(event);
+  return event;
+};
+const touch = (identifier, clientX, clientY) => ({ identifier, clientX, clientY });
 
 function Harness({ items = tracks }) {
   const audio = useAudio();
@@ -60,6 +70,7 @@ describe("AudioProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
     await waitFor(() => expect(mediaUrl).toHaveBeenCalledWith("one.mp3", { privateAccess: true }));
     await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Expand Now Playing" }));
     fireEvent.change(screen.getByRole("slider", { name: "Volume" }), { target: { value: "0.4" } });
     expect(window.localStorage.getItem("showmaster.player.volume.v1")).toBe("0.4");
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
@@ -68,6 +79,7 @@ describe("AudioProvider", () => {
   test("mute and volume controls update the real audio element", async () => {
     const { container } = render(<AudioProvider><Harness /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Expand Now Playing" }));
     await screen.findByRole("button", { name: "Mute" });
     fireEvent.click(screen.getByRole("button", { name: "Mute" }));
     await waitFor(() => expect(screen.getByRole("slider", { name: "Volume" })).toHaveValue("0"));
@@ -131,15 +143,14 @@ describe("AudioProvider", () => {
     expect(screen.getByRole("button", { name: "Play First" })).toHaveClass("is-paused");
   });
 
-  test("desktop queue distinguishes playing and paused tracks", async () => {
+  test("desktop full player queue distinguishes playing and paused tracks", async () => {
     render(<AudioProvider><Harness /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
-    await screen.findByRole("button", { name: "Toggle queue" });
-    fireEvent.click(screen.getByRole("button", { name: "Toggle queue" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Expand Now Playing" }));
     const playingTrack = screen.getByRole("button", { name: "Pause First" });
-    expect(playingTrack.parentElement).toHaveClass("is-playing");
+    expect(playingTrack).toHaveClass("is-playing");
     fireEvent.click(playingTrack);
-    expect(screen.getByRole("button", { name: "Play First" }).parentElement).toHaveClass("is-paused");
+    expect(screen.getByRole("button", { name: "Play First" })).toHaveClass("is-paused");
   });
 
   test("keeps native audio output and registers lock-screen media controls", async () => {
@@ -201,6 +212,9 @@ describe("AudioProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
     await screen.findByRole("button", { name: "Open Now Playing" });
     expect(screen.getByRole("button", { name: "Expand Now Playing" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close player" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mute" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add to playlist" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
     expect(screen.getByRole("dialog", { name: "Music player" })).toHaveClass("is-desktop");
     expect(screen.getByRole("slider", { name: "Volume" })).toBeInTheDocument();
@@ -210,24 +224,34 @@ describe("AudioProvider", () => {
     expect(screen.getByTestId("state")).toHaveTextContent("one:playing");
   });
 
-  test("mobile swipe opens and minimizes without hijacking playback controls", async () => {
+  test("native mobile touch swipe opens and minimizes without hijacking playback controls", async () => {
     setMobile(true);
     render(<AudioProvider><Harness /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
     const identity = await screen.findByRole("button", { name: "Open Now Playing" });
-    fireEvent.pointerDown(identity, { pointerId: 7, pointerType: "touch", clientX: 120, clientY: 220 });
-    fireEvent.pointerMove(identity, { pointerId: 7, pointerType: "touch", clientX: 121, clientY: 125 });
-    fireEvent.pointerUp(identity, { pointerId: 7, pointerType: "touch", clientX: 121, clientY: 125 });
+    let upwardMove;
+    act(() => {
+      dispatchTouch(identity, "touchstart", [touch(7, 120, 220)]);
+      upwardMove = dispatchTouch(identity, "touchmove", [touch(7, 121, 125)]);
+      dispatchTouch(identity, "touchend", [], [touch(7, 121, 125)]);
+    });
+    expect(upwardMove.defaultPrevented).toBe(true);
     const fullPlayer = await screen.findByRole("dialog", { name: "Music player" });
     const playButton = screen.getByRole("button", { name: "Pause" });
-    fireEvent.pointerDown(playButton, { pointerId: 8, pointerType: "touch", clientX: 120, clientY: 120 });
-    fireEvent.pointerMove(playButton, { pointerId: 8, pointerType: "touch", clientX: 120, clientY: 230 });
-    fireEvent.pointerUp(playButton, { pointerId: 8, pointerType: "touch", clientX: 120, clientY: 230 });
+    act(() => {
+      dispatchTouch(playButton, "touchstart", [touch(8, 120, 120)]);
+      dispatchTouch(playButton, "touchmove", [touch(8, 120, 230)]);
+      dispatchTouch(playButton, "touchend", [], [touch(8, 120, 230)]);
+    });
     expect(screen.getByRole("dialog", { name: "Music player" })).toBeInTheDocument();
     const artwork = fullPlayer.querySelector(".mobile-player__artwork");
-    fireEvent.pointerDown(artwork, { pointerId: 9, pointerType: "touch", clientX: 120, clientY: 100 });
-    fireEvent.pointerMove(artwork, { pointerId: 9, pointerType: "touch", clientX: 121, clientY: 195 });
-    fireEvent.pointerUp(artwork, { pointerId: 9, pointerType: "touch", clientX: 121, clientY: 195 });
+    let downwardMove;
+    act(() => {
+      dispatchTouch(artwork, "touchstart", [touch(9, 120, 100)]);
+      downwardMove = dispatchTouch(artwork, "touchmove", [touch(9, 121, 195)]);
+      dispatchTouch(artwork, "touchend", [], [touch(9, 121, 195)]);
+    });
+    expect(downwardMove.defaultPrevented).toBe(true);
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Music player" })).not.toBeInTheDocument());
     expect(screen.getByTestId("state")).toHaveTextContent("one:playing");
   });
