@@ -63,16 +63,26 @@ export function AudioProvider({ children }) {
   const [queueOpen, setQueueOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia?.("(max-width: 760px)").matches || false);
   const [retryKey, setRetryKey] = useState(0);
   const track = queue[index] || null;
   const hasPrevious = index > 0;
   const hasNext = index < queue.length - 1;
-  const openPlayer = () => { setCollapsing(false); setExpanded(true); };
-  const minimizePlayer = () => {
+  const openPlayer = useCallback(() => { setCollapsing(false); setExpanded(true); }, []);
+  const minimizePlayer = useCallback(() => {
     if (collapsing) return;
     setCollapsing(true);
     window.setTimeout(() => { setExpanded(false); setCollapsing(false); }, 260);
-  };
+  }, [collapsing]);
+
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const query = window.matchMedia("(max-width: 760px)");
+    const update = () => setIsMobile(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -145,7 +155,7 @@ export function AudioProvider({ children }) {
   );
 
   useEffect(() => {
-    if (!expanded || (window.matchMedia && !window.matchMedia("(max-width: 760px)").matches)) return undefined;
+    if (!expanded || !isMobile) return undefined;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     minimizeRef.current?.focus();
@@ -162,7 +172,7 @@ export function AudioProvider({ children }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
-  }, [expanded, collapsing]);
+  }, [expanded, collapsing, isMobile, minimizePlayer]);
 
   const detachSource = useCallback(() => {
     const element = audioRef.current;
@@ -345,72 +355,35 @@ export function AudioProvider({ children }) {
         }}
       />
       {track && (
-        <section ref={playerRef} className={`real-player${expanded ? " expanded" : ""}${collapsing ? " collapsing" : ""}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
-          <header className="real-player__sheet-head">
-            <button ref={minimizeRef} onClick={minimizePlayer} aria-label="Minimize player"><ChevronDown /></button>
-            <span>Now Playing</span>
-            <i aria-hidden="true" />
-          </header>
-          <button type="button" className="real-player__track" onClick={() => !expanded && openPlayer()} aria-label={expanded ? undefined : "Open Now Playing"}>
-            <MusicArtwork
-              release={track.release || {
-                color: "art-glass",
-                title: track.releaseTitle || "Release",
-                artist: track.artistName || track.artist,
-              }}
-              size="mini"
-            />
-            <div>
-              <strong className={playing ? "is-playing" : ""} title={track.title}><span>{track.title}</span></strong>
-              <span>{track.artistName || track.artist}</span>
-              <em>{queue.length > 1 ? `${index + 1} of ${queue.length} · Queue` : "Single track"}</em>
-              {track.access === "private-preview" && <small>Private preview · only you</small>}
-            </div>
-          </button>
-          <div className="real-player__center">
-            <div>
-              <button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button>
-              <button className="real-play" onClick={toggle} disabled={loading && !sourceReady} aria-label={playing ? "Pause" : "Play"}>
-                {playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
-              </button>
-              <button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button>
-            </div>
-            <label className="real-player__progress">
-              <span>{formatTime(currentTime)}</span>
-              <span className="sr-only">Playback position</span>
-              <input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onInput={(event) => seek(event.currentTarget.value)} onChange={(event) => seek(event.target.value)} />
-              <span>{formatTime(duration)}</span>
-            </label>
-            {loading && <small role="status">Loading audio…</small>}
-          </div>
-          <div className="real-player__tools">
-            <AddToPlaylistButton track={track} />
-            <button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button>
-            <input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onInput={(event) => setVolume(event.currentTarget.value)} onChange={(event) => setVolume(event.target.value)} />
-            {queue.length > 1 && <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>}
-            <button onClick={close} aria-label="Close player"><X /></button>
-          </div>
-          {error && (
-            <div className="real-player__error" role="alert">
-              <span>{error}</span>
-              <button onClick={retry}><RotateCcw /> Retry</button>
-              {hasNext && <button onClick={next}>Next track</button>}
-            </div>
-          )}
-          {(queueOpen || expanded) && queue.length > 1 && (
-            <aside className="real-queue" aria-label="Playback queue">
-              <header><strong>Queue</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></header>
-              {queue.map((item, itemIndex) => (
-                <div className={`real-queue__item${itemIndex === index ? " active" : ""}`} key={`${item.release?.id || item.releaseId}-${item.id}`}>
-                  <button aria-current={itemIndex === index ? "true" : undefined} onClick={() => selectTrack(itemIndex)}>
-                    <span>{itemIndex + 1}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div>
-                  </button>
-                  <AddToPlaylistButton track={item} />
-                </div>
-              ))}
-            </aside>
-          )}
-        </section>
+        isMobile ? (
+          <section ref={playerRef} className={`mobile-player${expanded ? " is-expanded" : ""}${collapsing ? " is-collapsing" : ""}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
+            {expanded ? <>
+              <header className="mobile-player__header"><button ref={minimizeRef} onClick={minimizePlayer} aria-label="Minimize player"><ChevronDown /></button><strong>Now Playing</strong><i /></header>
+              <div className={`mobile-player__artwork${playing ? " is-playing" : ""}`}><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="hero" /></div>
+              <div className="mobile-player__details"><strong>{track.title}</strong><span>{track.artistName || track.artist}</span><small>{queue.length > 1 ? `${index + 1} of ${queue.length}` : "Single track"}{track.access === "private-preview" ? " · Private preview" : ""}</small></div>
+              <label className="mobile-player__seek mobile-player__seek--expanded"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
+              <div className="mobile-player__controls"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={playing ? "Pause" : "Play"}>{playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>
+              <div className="mobile-player__actions"><AddToPlaylistButton track={track}>Add to playlist</AddToPlaylistButton></div>
+              {loading && <small className="mobile-player__status" role="status">Loading audio…</small>}
+              {queue.length > 1 && <aside className="mobile-player__queue" aria-label="Playback queue"><header><strong>Up next</strong><span>{queue.length} tracks</span></header>{queue.map((item, itemIndex) => <button className={itemIndex === index ? "active" : ""} aria-current={itemIndex === index ? "true" : undefined} onClick={() => selectTrack(itemIndex)} key={`${item.release?.id || item.releaseId}-${item.id}`}><span>{itemIndex + 1}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div></button>)}</aside>}
+            </> : <>
+              <div className="mobile-player__toprow">
+                <button type="button" className="mobile-player__identity" onClick={openPlayer} aria-label="Open Now Playing"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><span><strong title={track.title}>{track.title}</strong><small>{track.artistName || track.artist}</small></span></button>
+                <div className="mobile-player__controls mobile-player__controls--compact"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={playing ? "Pause" : "Play"}>{playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>
+              </div>
+              <label className="mobile-player__seek"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
+            </>}
+            {error && <div className="mobile-player__error" role="alert"><span>{error}</span><button onClick={retry}><RotateCcw /> Retry</button>{hasNext && <button onClick={next}>Next</button>}</div>}
+          </section>
+        ) : (
+          <section className="real-player" aria-label="Music player">
+            <div className="real-player__track"><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="mini" /><div><strong title={track.title}>{track.title}</strong><span>{track.artistName || track.artist}</span>{track.access === "private-preview" && <small>Private preview · only you</small>}</div></div>
+            <div className="real-player__center"><div><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="real-play" onClick={toggle} disabled={loading && !sourceReady} aria-label={playing ? "Pause" : "Play"}>{playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div><label className="real-player__progress"><span>{formatTime(currentTime)}</span><span className="sr-only">Playback position</span><input type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>{loading && <small role="status">Loading audio…</small>}</div>
+            <div className="real-player__tools"><AddToPlaylistButton track={track} /><button onClick={toggleMute} aria-label={volume ? "Mute" : "Unmute"}>{volume ? <Volume2 /> : <VolumeX />}</button><input aria-label="Volume" type="range" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(event.target.value)} />{queue.length > 1 && <button onClick={() => setQueueOpen(!queueOpen)} aria-label="Toggle queue"><ListMusic /></button>}<button onClick={close} aria-label="Close player"><X /></button></div>
+            {error && <div className="real-player__error" role="alert"><span>{error}</span><button onClick={retry}><RotateCcw /> Retry</button>{hasNext && <button onClick={next}>Next track</button>}</div>}
+            {queueOpen && queue.length > 1 && <aside className="real-queue" aria-label="Playback queue"><header><strong>Queue</strong><button onClick={() => setQueueOpen(false)} aria-label="Close queue"><X /></button></header>{queue.map((item, itemIndex) => <div className={`real-queue__item${itemIndex === index ? " active" : ""}`} key={`${item.release?.id || item.releaseId}-${item.id}`}><button aria-current={itemIndex === index ? "true" : undefined} onClick={() => selectTrack(itemIndex)}><span>{itemIndex + 1}</span><div><strong>{item.title}</strong><small>{item.artistName || item.artist}</small></div></button><AddToPlaylistButton track={item} /></div>)}</aside>}
+          </section>
+        )
       )}
     </AudioContext.Provider>
   );

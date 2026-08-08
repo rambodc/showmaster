@@ -1,14 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, test, vi } from 'vitest';
 import ReleasePage from './ReleasePage';
 
-const { getRelease, getArtist, getReleaseTracks } = vi.hoisted(() => ({
-  getRelease: vi.fn(), getArtist: vi.fn(), getReleaseTracks: vi.fn(),
+const { getRelease, getArtist, getReleaseTracks, playTracks } = vi.hoisted(() => ({
+  getRelease: vi.fn(), getArtist: vi.fn(), getReleaseTracks: vi.fn(), playTracks: vi.fn(),
 }));
 
 vi.mock('../lib/catalog', () => ({ getRelease, getArtist, getReleaseTracks, mediaUrl: vi.fn().mockResolvedValue('') }));
-vi.mock('../music/AudioProvider', () => ({ useAudio: () => ({ track: null, playing: false, isTrackActive: () => false, toggle: vi.fn(), playTracks: vi.fn() }) }));
+vi.mock('../music/AudioProvider', () => ({ useAudio: () => ({ track: null, playing: false, isTrackActive: () => false, toggle: vi.fn(), playTracks }) }));
 vi.mock('../playlists/PlaylistProvider', () => ({ AddToPlaylistButton: () => null }));
 
 beforeEach(() => {
@@ -19,6 +19,16 @@ beforeEach(() => {
     { id: 'track-2', title: 'Endless Glow', status: 'ready', durationSeconds: 239, storagePath: 'audio/2.mp3' },
     { id: 'track-3', title: 'I Wanna Feel', status: 'ready', durationSeconds: 479, storagePath: 'audio/3.mp3' },
   ]);
+  playTracks.mockClear();
+});
+
+test('plays from the main track area but not from the duration zone', async () => {
+  render(<MemoryRouter initialEntries={['/release/release-1']}><Routes><Route path="/release/:releaseId" element={<ReleasePage />} /></Routes></MemoryRouter>);
+  const play = await screen.findByRole('button', { name: 'Play Deep emotions,' });
+  fireEvent.click(play);
+  expect(playTracks).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByText('1:52'));
+  expect(playTracks).toHaveBeenCalledTimes(1);
 });
 
 test('renders complete anonymous release rows without relying on a playlist button', async () => {

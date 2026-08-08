@@ -10,6 +10,9 @@ const tracks = [
   { id: "one", title: "First", artistName: "Nova", status: "ready", storagePath: "one.mp3", access: "public" },
   { id: "two", title: "Second", artistName: "Nova", status: "ready", storagePath: "two.mp3", access: "public" },
 ];
+const setMobile = (matches) => {
+  window.matchMedia = vi.fn().mockReturnValue({ matches, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+};
 
 function Harness({ items = tracks }) {
   const audio = useAudio();
@@ -18,6 +21,7 @@ function Harness({ items = tracks }) {
 
 describe("AudioProvider", () => {
   beforeEach(() => {
+    setMobile(false);
     window.localStorage.clear();
     mediaUrl.mockImplementation((path) => Promise.resolve(`https://media.test/${path}`));
     HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined);
@@ -94,6 +98,7 @@ describe("AudioProvider", () => {
   });
 
   test("single-track Now Playing has useful controls without an empty queue", async () => {
+    setMobile(true);
     render(<AudioProvider><Harness items={[tracks[0]]} /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
     await screen.findByRole("button", { name: "Open Now Playing" });
@@ -102,17 +107,32 @@ describe("AudioProvider", () => {
     expect(screen.getByText("Now Playing")).toBeInTheDocument();
     expect(screen.getByText("Single track")).toBeInTheDocument();
     expect(screen.queryByLabelText("Playback queue")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close player" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider", { name: "Volume" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Minimize player" }));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Music player" })).not.toBeInTheDocument());
     expect(screen.getByTestId("state")).toHaveTextContent("one:playing");
   });
 
   test("multi-track Now Playing exposes the queue", async () => {
+    setMobile(true);
     render(<AudioProvider><Harness /></AudioProvider>);
     fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
     await screen.findByRole("button", { name: "Open Now Playing" });
     fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
     expect(screen.getByLabelText("Playback queue")).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 · Queue")).toBeInTheDocument();
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
+  });
+
+  test("compact mobile player exposes controls, timestamps, and one seek input", async () => {
+    setMobile(true);
+    render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    expect(await screen.findByRole("button", { name: "Open Now Playing" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous track" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next track" })).toBeInTheDocument();
+    expect(screen.getAllByText("0:00")).toHaveLength(2);
+    expect(screen.getAllByRole("slider", { name: "Playback position" })).toHaveLength(1);
   });
 });

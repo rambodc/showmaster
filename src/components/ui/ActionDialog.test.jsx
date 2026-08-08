@@ -24,3 +24,16 @@ test('shows an accessible pending state and prevents another click', () => {
   fireEvent.click(button);
   expect(click).not.toHaveBeenCalled();
 });
+
+test('tracks the mobile visual viewport and restores page position', () => {
+  const listeners = {};
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: { height: 420, offsetTop: 18, addEventListener: vi.fn((name, callback) => { listeners[name] = callback; }), removeEventListener: vi.fn() } });
+  window.scrollTo = vi.fn();
+  const { unmount } = render(<ActionDialog open onOpenChange={() => {}} title="Create playlist" label="Playlist name" confirmLabel="Create" onConfirm={() => {}} />);
+  expect(document.documentElement.style.getPropertyValue('--dialog-viewport-height')).toBe('420px');
+  expect(document.documentElement.style.getPropertyValue('--dialog-viewport-offset')).toBe('18px');
+  unmount();
+  expect(document.documentElement.style.getPropertyValue('--dialog-viewport-height')).toBe('');
+  expect(window.scrollTo).toHaveBeenCalled();
+  delete window.visualViewport;
+});
