@@ -3,12 +3,13 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, test, vi } from 'vitest';
 import ReleasePage from './ReleasePage';
 
-const { getRelease, getArtist, getReleaseTracks, playTracks } = vi.hoisted(() => ({
+const { getRelease, getArtist, getReleaseTracks, playTracks, audioState } = vi.hoisted(() => ({
   getRelease: vi.fn(), getArtist: vi.fn(), getReleaseTracks: vi.fn(), playTracks: vi.fn(),
+  audioState: { track: null, playing: false, loading: false },
 }));
 
 vi.mock('../lib/catalog', () => ({ getRelease, getArtist, getReleaseTracks, mediaUrl: vi.fn().mockResolvedValue('') }));
-vi.mock('../music/AudioProvider', () => ({ useAudio: () => ({ track: null, playing: false, isTrackActive: () => false, toggle: vi.fn(), playTracks }) }));
+vi.mock('../music/AudioProvider', () => ({ useAudio: () => ({ ...audioState, isTrackActive: (id) => audioState.track?.id === id, toggle: vi.fn(), playTracks }) }));
 vi.mock('../playlists/PlaylistProvider', () => ({ AddToPlaylistButton: () => null }));
 
 beforeEach(() => {
@@ -20,6 +21,9 @@ beforeEach(() => {
     { id: 'track-3', title: 'I Wanna Feel', status: 'ready', durationSeconds: 479, storagePath: 'audio/3.mp3' },
   ]);
   playTracks.mockClear();
+  audioState.track = null;
+  audioState.playing = false;
+  audioState.loading = false;
 });
 
 test('plays from the main track area but not from the duration zone', async () => {
@@ -38,4 +42,12 @@ test('renders complete anonymous release rows without relying on a playlist butt
   expect(screen.getByText('I Wanna Feel')).toBeVisible();
   expect(screen.getAllByRole('button', { name: /^Play (Deep emotions,|Endless Glow|I Wanna Feel)$/ })).toHaveLength(3);
   expect(document.querySelectorAll('.public-track-row__main')).toHaveLength(3);
+});
+
+test('marks the currently playing row with the explicit playing state', async () => {
+  audioState.track = { id: 'track-1' };
+  audioState.playing = true;
+  render(<MemoryRouter initialEntries={['/release/release-1']}><Routes><Route path="/release/:releaseId" element={<ReleasePage />} /></Routes></MemoryRouter>);
+  const pause = await screen.findByRole('button', { name: 'Pause Deep emotions,' });
+  expect(pause.closest('.public-track-row')).toHaveClass('active', 'is-playing');
 });

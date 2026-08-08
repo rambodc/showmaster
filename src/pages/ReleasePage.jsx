@@ -72,8 +72,9 @@ export default function ReleasePage() {
           {tracks.map((track, index) => {
             const active = audio.isTrackActive(track.id);
             const trackLoading = active && audio.loading;
+            const playbackState = trackLoading ? " is-loading" : active && audio.playing ? " is-playing" : active ? " is-paused" : "";
             const playableTrack = playable.find((item) => item.id === track.id);
-            return <article className={`public-track-row${active ? " active" : ""}`} key={track.id}>
+            return <article className={`public-track-row${active ? " active" : ""}${playbackState}`} key={track.id}>
               <button className="public-track-row__main" onClick={() => active ? audio.toggle() : audio.playTracks(playable, track.id)} aria-label={`${trackLoading ? "Loading" : active && audio.playing ? "Pause" : "Play"} ${track.title}`}>
                 <span className="public-track-row__number">{String(index + 1).padStart(2, "0")}</span>
                 <span className="public-track-row__play">{trackLoading ? <LoaderCircle className="audio-loading-spinner" /> : active && audio.playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}</span>

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { vi } from 'vitest';
 import { ActionDialog } from './ActionDialog';
 import { LoadingButton } from './LoadingButton';
@@ -36,4 +37,17 @@ test('tracks the mobile visual viewport and restores page position', () => {
   expect(document.documentElement.style.getPropertyValue('--dialog-viewport-height')).toBe('');
   expect(window.scrollTo).toHaveBeenCalled();
   delete window.visualViewport;
+});
+
+test('restores focus to the opener when the dialog closes', async () => {
+  function Harness() {
+    const [open, setOpen] = useState(false);
+    return <><button onClick={() => setOpen(true)}>Open playlist dialog</button><ActionDialog open={open} onOpenChange={setOpen} title="Add to playlist" label="Playlist name" onConfirm={() => {}} /></>;
+  }
+  render(<Harness />);
+  const opener = screen.getByRole('button', { name: 'Open playlist dialog' });
+  opener.focus();
+  fireEvent.click(opener);
+  fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(opener).toHaveFocus());
 });

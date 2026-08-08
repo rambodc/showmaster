@@ -124,8 +124,22 @@ describe("AudioProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
     expect(screen.getByLabelText("Playback queue")).toBeInTheDocument();
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pause First" })).toBeInTheDocument();
+    const playingTrack = screen.getByRole("button", { name: "Pause First" });
+    expect(playingTrack).toHaveClass("is-playing");
     expect(screen.getByRole("button", { name: "Play Second" })).toBeInTheDocument();
+    fireEvent.click(playingTrack);
+    expect(screen.getByRole("button", { name: "Play First" })).toHaveClass("is-paused");
+  });
+
+  test("desktop queue distinguishes playing and paused tracks", async () => {
+    render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    await screen.findByRole("button", { name: "Toggle queue" });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle queue" }));
+    const playingTrack = screen.getByRole("button", { name: "Pause First" });
+    expect(playingTrack.parentElement).toHaveClass("is-playing");
+    fireEvent.click(playingTrack);
+    expect(screen.getByRole("button", { name: "Play First" }).parentElement).toHaveClass("is-paused");
   });
 
   test("mobile loading stays inside controls and the full playlist action is one button", async () => {

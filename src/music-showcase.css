@@ -142,3 +142,29 @@
 .public-track-row__main:focus-visible,.creator-track__main:focus-visible,.playlist-track__main:focus-visible,.mobile-player__queue>button:focus-visible{position:relative;z-index:1;outline:3px solid #c889f3;outline-offset:-3px}
 .public-track-row__main:disabled,.creator-track__main:disabled,.playlist-track__main:disabled{cursor:not-allowed}
 .public-track-row.active .public-track-row__play,.creator-track.active .creator-track__play,.playlist-tracks article.active .playlist-track__play{background:#7d4bdd!important;color:#fff!important}
+
+/* Modal layering and explicit playback-state hierarchy. */
+.dialog-overlay{z-index:200}
+.dialog-content{z-index:201}
+.toast-region{z-index:230}
+.public-track-row,.creator-track,.playlist-tracks article{position:relative}
+.public-track-row.active:before,.creator-track.active:before,.playlist-tracks article.active:before{content:"";position:absolute;z-index:1;left:0;top:8px;bottom:8px;width:3px;border-radius:0 4px 4px 0;background:#9a60e8;pointer-events:none}
+.public-track-row.is-paused,.creator-track.is-paused,.playlist-tracks article.is-paused{background:#f8f4ff}
+.public-track-row.is-playing,.creator-track.is-playing,.playlist-tracks article.is-playing{background:linear-gradient(90deg,#f0e7ff,#faf7ff 70%)}
+.public-track-row.is-playing .public-track-row__play,.creator-track.is-playing .creator-track__play,.playlist-tracks article.is-playing .playlist-track__play{background:linear-gradient(135deg,#7547e8,#a64ee4)!important;color:#fff!important;box-shadow:0 0 0 4px #8c52df1c,0 5px 14px #6f3fba35;animation:playing-control-pulse 1.8s ease-in-out infinite}
+.public-track-row.is-paused .public-track-row__play,.creator-track.is-paused .creator-track__play,.playlist-tracks article.is-paused .playlist-track__play{border:1px solid #9d70da;background:#f6f0ff!important;color:#7246ae!important;box-shadow:none}
+.public-track-row.is-loading .public-track-row__play,.creator-track.is-loading .creator-track__play,.playlist-tracks article.is-loading .playlist-track__play{background:#7d4bdd!important;color:#fff!important;box-shadow:0 0 0 4px #8c52df17}
+.creator-track.is-unavailable{background:#fbfafc;color:#8e8795}.creator-track.is-unavailable .creator-track__play{border:1px solid #ddd7e4;background:#f3f0f5!important;color:#a9a2ae!important;box-shadow:none}
+.mobile-player__queue>button.active,.real-queue__item.active{position:relative;background:#ffffff12}
+.mobile-player__queue>button.is-playing{background:linear-gradient(90deg,#9b5ee52b,#ffffff0b)}
+.mobile-player__queue>button.is-playing .mobile-player__queue-control{background:linear-gradient(135deg,#b36bea,#7b49dd);box-shadow:0 0 0 4px #aa6ae725,0 5px 14px #09031555;animation:playing-control-pulse 1.8s ease-in-out infinite}
+.mobile-player__queue>button.is-paused .mobile-player__queue-control{border:1px solid #ae83e5;background:#ffffff0b;color:#d9bef7}
+.real-queue__item>button:first-child{grid-template-columns:34px minmax(0,1fr)}
+.real-queue__control{width:28px;height:28px;border-radius:50%;background:#ede4fb;color:#6b3eaa;display:grid;place-items:center}
+.real-queue__control svg{width:13px;height:13px}
+.real-queue__item.is-playing{background:linear-gradient(90deg,#eee3ff,#faf7ff)}
+.real-queue__item.is-playing .real-queue__control{background:linear-gradient(135deg,#7547e8,#a64ee4);color:#fff;box-shadow:0 0 0 4px #8c52df1c;animation:playing-control-pulse 1.8s ease-in-out infinite}
+.real-queue__item.is-paused .real-queue__control{border:1px solid #9d70da;background:#f6f0ff;color:#7246ae}
+.real-queue__item.is-loading .real-queue__control{background:#7d4bdd;color:#fff}
+@keyframes playing-control-pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 4px #8c52df1c,0 5px 14px #6f3fba35}50%{transform:scale(1.04);box-shadow:0 0 0 6px #8c52df10,0 7px 18px #6f3fba45}}
+@media(prefers-reduced-motion:reduce){.public-track-row.is-playing .public-track-row__play,.creator-track.is-playing .creator-track__play,.playlist-tracks article.is-playing .playlist-track__play,.mobile-player__queue>button.is-playing .mobile-player__queue-control,.real-queue__item.is-playing .real-queue__control{animation:none}}

@@ -536,11 +536,15 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
               <p>Add an MP3 to begin building this release.</p>
             </div>
           )}
-          {tracks.map((track, index) => (
-            <div className={`creator-track${audio.isTrackActive(track.id) ? " active" : ""}`} key={track.id}>
+          {tracks.map((track, index) => {
+            const active = audio.isTrackActive(track.id);
+            const unavailable = track.status !== "ready" || !track.storagePath;
+            const playbackState = unavailable ? " is-unavailable" : active && audio.loading ? " is-loading" : active && audio.playing ? " is-playing" : active ? " is-paused" : "";
+            return (
+            <div className={`creator-track${active ? " active" : ""}${playbackState}`} key={track.id}>
               <button
                 className="creator-track__main"
-                disabled={track.status !== "ready" || !track.storagePath}
+                disabled={unavailable}
                 aria-label={
                   audio.isTrackActive(track.id) && audio.loading
                     ? `Loading ${track.title}`
@@ -625,7 +629,7 @@ function ReleaseEditor({ release, artist, ownerUid, onBack, onChanged }) {
                 </div>
               )}
             </div>
-          ))}
+          ); })}
         </div>
       </section>
       <Dialog open={editing} onOpenChange={setEditing} title="Edit release" description="Update the details listeners see when this release is published.">
