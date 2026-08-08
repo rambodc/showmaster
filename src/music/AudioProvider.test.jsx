@@ -142,6 +142,30 @@ describe("AudioProvider", () => {
     expect(screen.getByRole("button", { name: "Play First" }).parentElement).toHaveClass("is-paused");
   });
 
+  test("creates one reusable analyser and marks full artwork as reactive", async () => {
+    setMobile(true);
+    const analyser = { fftSize: 0, smoothingTimeConstant: 0, frequencyBinCount: 64, connect: vi.fn(), getByteFrequencyData: vi.fn((data) => data.fill(80)) };
+    const source = { connect: vi.fn() };
+    const context = { sampleRate: 48000, destination: {}, state: "running", createMediaElementSource: vi.fn(() => source), createAnalyser: vi.fn(() => analyser), resume: vi.fn().mockResolvedValue(undefined), close: vi.fn().mockResolvedValue(undefined) };
+    const Context = vi.fn(() => context);
+    window.AudioContext = Context;
+    const frame = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1);
+    const { container, unmount } = render(<AudioProvider><Harness /></AudioProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Start queue" }));
+    await screen.findByRole("button", { name: "Open Now Playing" });
+    fireEvent.click(screen.getByRole("button", { name: "Open Now Playing" }));
+    await waitFor(() => expect(container.querySelector(".mobile-player__artwork")).toHaveClass("is-reactive"));
+    expect(context.createMediaElementSource).toHaveBeenCalledTimes(1);
+    expect(container.querySelector("audio")).toHaveAttribute("crossorigin", "anonymous");
+    expect(frame).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(context.createMediaElementSource).toHaveBeenCalledTimes(1);
+    unmount();
+    frame.mockRestore();
+    delete window.AudioContext;
+  });
+
   test("mobile loading stays inside controls and the full playlist action is one button", async () => {
     setMobile(true);
     let resolveMedia;

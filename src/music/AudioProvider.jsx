@@ -52,6 +52,12 @@ export function AudioProvider({ children }) {
   const previousVolumeRef = useRef(DEFAULT_VOLUME);
   const minimizeRef = useRef(null);
   const playerRef = useRef(null);
+  const webAudioContextRef = useRef(null);
+  const mediaSourceRef = useRef(null);
+  const analyserRef = useRef(null);
+  const analyserDataRef = useRef(null);
+  const analyserFrameRef = useRef(0);
+  const analyserEnergyRef = useRef(0);
   const [queue, setQueue] = useState([]);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -66,6 +72,7 @@ export function AudioProvider({ children }) {
   const [collapsing, setCollapsing] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.matchMedia?.("(max-width: 760px)").matches || false);
   const [retryKey, setRetryKey] = useState(0);
+  const [analyserReady, setAnalyserReady] = useState(false);
   const track = queue[index] || null;
   const hasPrevious = index > 0;
   const hasNext = index < queue.length - 1;
@@ -157,9 +164,43 @@ export function AudioProvider({ children }) {
   useEffect(
     () => () => {
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      window.cancelAnimationFrame(analyserFrameRef.current);
+      webAudioContextRef.current?.close?.().catch?.(() => {});
     },
     [],
   );
+
+  const ensureAnalyser = useCallback(() => {
+    if (analyserRef.current) {
+      webAudioContextRef.current?.resume?.().catch?.(() => {});
+      return true;
+    }
+    const Context = window.AudioContext || window.webkitAudioContext;
+    const element = audioRef.current;
+    if (!Context || !element) return false;
+    let context;
+    let source;
+    try {
+      context = new Context();
+      source = context.createMediaElementSource(element);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.82;
+      source.connect(analyser);
+      analyser.connect(context.destination);
+      webAudioContextRef.current = context;
+      mediaSourceRef.current = source;
+      analyserRef.current = analyser;
+      analyserDataRef.current = new Uint8Array(analyser.frequencyBinCount);
+      setAnalyserReady(true);
+      context.resume?.().catch?.(() => {});
+      return true;
+    } catch {
+      try { source?.connect?.(context?.destination); } catch { context?.close?.().catch?.(() => {}); }
+      setAnalyserReady(false);
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     if (!expanded || !isMobile) return undefined;
@@ -181,6 +222,47 @@ export function AudioProvider({ children }) {
     return () => { document.body.style.overflow = previous; window.removeEventListener("keydown", onKeyDown); };
   }, [expanded, collapsing, isMobile, minimizePlayer]);
 
+  useEffect(() => {
+    window.cancelAnimationFrame(analyserFrameRef.current);
+    const artwork = playerRef.current?.querySelector(".mobile-player__artwork");
+    if (!expanded || !isMobile || !playing || !analyserReady || !analyserRef.current || !artwork) {
+      analyserEnergyRef.current = 0;
+      artwork?.style.setProperty("--audio-scale", "1");
+      artwork?.style.setProperty("--audio-energy", "0");
+      artwork?.style.setProperty("--audio-lift", "18px");
+      artwork?.style.setProperty("--audio-blur", "25px");
+      return undefined;
+    }
+    const analyser = analyserRef.current;
+    const data = analyserDataRef.current;
+    const context = webAudioContextRef.current;
+    const binWidth = context.sampleRate / analyser.fftSize;
+    const startBin = Math.max(1, Math.floor(38 / binWidth));
+    const endBin = Math.min(data.length - 1, Math.ceil(180 / binWidth));
+    const renderEnergy = () => {
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let bin = startBin; bin <= endBin; bin += 1) sum += data[bin];
+      const raw = sum / Math.max(1, endBin - startBin + 1) / 255;
+      const shaped = Math.min(1, Math.max(0, (raw - 0.06) / 0.52));
+      analyserEnergyRef.current += (shaped - analyserEnergyRef.current) * 0.18;
+      const energy = analyserEnergyRef.current;
+      artwork.style.setProperty("--audio-energy", energy.toFixed(3));
+      artwork.style.setProperty("--audio-scale", (1 + energy * 0.045).toFixed(4));
+      artwork.style.setProperty("--audio-lift", `${18 + energy * 13}px`);
+      artwork.style.setProperty("--audio-blur", `${25 + energy * 18}px`);
+      analyserFrameRef.current = window.requestAnimationFrame(renderEnergy);
+    };
+    renderEnergy();
+    return () => {
+      window.cancelAnimationFrame(analyserFrameRef.current);
+      artwork.style.setProperty("--audio-scale", "1");
+      artwork.style.setProperty("--audio-energy", "0");
+      artwork.style.setProperty("--audio-lift", "18px");
+      artwork.style.setProperty("--audio-blur", "25px");
+    };
+  }, [analyserReady, expanded, isMobile, playing, track?.id]);
+
   const detachSource = useCallback(() => {
     const element = audioRef.current;
     requestRef.current += 1;
@@ -195,6 +277,7 @@ export function AudioProvider({ children }) {
   }, []);
   const play = useCallback(() => {
     if (!track) return;
+    ensureAnalyser();
     autoplayRef.current = true;
     setError("");
     setPlaying(true);
@@ -204,7 +287,7 @@ export function AudioProvider({ children }) {
         setPlaying(false);
         setError("Playback was blocked. Press play to try again.");
       });
-  }, [sourceReady, track]);
+  }, [ensureAnalyser, sourceReady, track]);
   const pause = useCallback(() => {
     autoplayRef.current = false;
     transitioningRef.current = false;
@@ -255,6 +338,7 @@ export function AudioProvider({ children }) {
       (item) => item.status === "ready" && item.storagePath,
     );
     if (!playable.length) return false;
+    ensureAnalyser();
     autoplayRef.current = true;
     detachSource();
     const requestedIndex = playable.findIndex((item) => item.id === startId);
@@ -265,7 +349,7 @@ export function AudioProvider({ children }) {
     setError("");
     setLoading(true);
     return true;
-  }, [detachSource]);
+  }, [detachSource, ensureAnalyser]);
   const retry = useCallback(() => {
     autoplayRef.current = true;
     detachSource();
@@ -332,6 +416,7 @@ export function AudioProvider({ children }) {
       {children}
       <audio
         ref={audioRef}
+        crossOrigin="anonymous"
         preload="metadata"
         onPlay={() => setPlaying(true)}
         onPause={() => {
@@ -366,7 +451,7 @@ export function AudioProvider({ children }) {
           <section ref={playerRef} className={`mobile-player${expanded ? " is-expanded" : ""}${collapsing ? " is-collapsing" : ""}`} aria-label="Music player" role={expanded ? "dialog" : undefined} aria-modal={expanded ? "true" : undefined}>
             {expanded ? <>
               <header className="mobile-player__header"><button ref={minimizeRef} onClick={minimizePlayer} aria-label="Minimize player"><ChevronDown /></button><strong>Now Playing</strong><i /></header>
-              <div className={`mobile-player__artwork${playing ? " is-playing" : ""}`}><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="hero" /></div>
+              <div className={`mobile-player__artwork${playing ? " is-playing" : ""}${analyserReady ? " is-reactive" : ""}`}><MusicArtwork release={track.release || { color: "art-glass", title: track.releaseTitle || "Release", artist: track.artistName || track.artist }} size="hero" /></div>
               <div className="mobile-player__details"><strong>{track.title}</strong><span>{track.artistName || track.artist}</span><small>{queue.length > 1 ? `${index + 1} of ${queue.length}` : "Single track"}{track.access === "private-preview" ? " · Private preview" : ""}</small></div>
               <label className="mobile-player__seek mobile-player__seek--expanded"><span>{formatTime(currentTime)}</span><input aria-label="Playback position" type="range" min="0" max={duration || 0} step="0.1" value={Math.min(currentTime, duration || 0)} onChange={(event) => seek(event.target.value)} /><span>{formatTime(duration)}</span></label>
               <div className="mobile-player__controls"><button onClick={previous} disabled={!hasPrevious} aria-label="Previous track"><SkipBack /></button><button className="mobile-player__play" onClick={toggle} disabled={loading && !sourceReady} aria-label={loading ? "Loading audio" : playing ? "Pause" : "Play"}>{transportIcon}</button><button onClick={next} disabled={!hasNext} aria-label="Next track"><SkipForward /></button></div>

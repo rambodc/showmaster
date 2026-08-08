@@ -14,6 +14,7 @@ export function PlaylistProvider({ children }) {
   const toast = useToast();
   const [playlists, setPlaylists] = useState([]);
   const [track, setTrack] = useState(null);
+  const [excludedPlaylistId, setExcludedPlaylistId] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -22,9 +23,10 @@ export function PlaylistProvider({ children }) {
     setPlaylists(await getMyPlaylists(user.uid));
   }, [user]);
   useEffect(() => { load().catch(() => setPlaylists([])); }, [load]);
-  const openAddToPlaylist = useCallback((item) => {
+  const openAddToPlaylist = useCallback((item, options = {}) => {
     if (!user) return false;
     setTrack(item);
+    setExcludedPlaylistId(options.excludePlaylistId || "");
     setError("");
     return true;
   }, [user]);
@@ -33,6 +35,7 @@ export function PlaylistProvider({ children }) {
     try {
       await addTrackToPlaylist({ playlistId, releaseId: track.release?.id || track.releaseId, trackId: track.id || track.trackId });
       setTrack(null);
+      setExcludedPlaylistId("");
       await load();
       toast.success("Track added to playlist.");
     } catch (reason) { const message = friendlyError(reason); setError(message); toast.error(message); }
@@ -47,6 +50,7 @@ export function PlaylistProvider({ children }) {
       await addTrackToPlaylist({ playlistId: created.playlistId, releaseId: track.release?.id || track.releaseId, trackId: track.id || track.trackId });
       await load();
       setTrack(null);
+      setExcludedPlaylistId("");
       toast.success("Playlist created and track added.");
     } catch (reason) { const message = friendlyError(reason); setError(message); toast.error(message); }
     finally { setBusy(""); }
@@ -54,13 +58,13 @@ export function PlaylistProvider({ children }) {
   const value = useMemo(() => ({ playlists, load, openAddToPlaylist }), [load, openAddToPlaylist, playlists]);
   return <PlaylistContext.Provider value={value}>
     {children}
-    <Dialog open={Boolean(track)} onOpenChange={(open) => { if (!open && !busy) setTrack(null); }} preventClose={Boolean(busy)} title="Add to playlist" description={track?.title || "Choose a private playlist."} className="playlist-dialog-content">
+    <Dialog open={Boolean(track)} onOpenChange={(open) => { if (!open && !busy) { setTrack(null); setExcludedPlaylistId(""); } }} preventClose={Boolean(busy)} title="Add to playlist" description={track?.title || "Choose a private playlist."} className="playlist-dialog-content">
       {track && <div className="playlist-dialog-body">
         <ListPlus className="playlist-dialog-icon" />
         {error && <p className="playlist-dialog__error" role="alert">{error}</p>}
         <div className="playlist-dialog__lists">
-          {playlists.map((playlist) => <LoadingButton loading={busy === playlist.id} loadingLabel="Adding…" disabled={Boolean(busy)} onClick={() => add(playlist.id)} key={playlist.id}><span>{playlist.name}</span><small>{playlist.trackCount || 0} tracks</small></LoadingButton>)}
-          {!playlists.length && <p>You have no playlists yet. Create one below.</p>}
+          {playlists.filter((playlist) => playlist.id !== excludedPlaylistId).map((playlist) => <LoadingButton loading={busy === playlist.id} loadingLabel="Adding…" disabled={Boolean(busy)} onClick={() => add(playlist.id)} key={playlist.id}><span>{playlist.name}</span><small>{playlist.trackCount || 0} tracks</small></LoadingButton>)}
+          {!playlists.some((playlist) => playlist.id !== excludedPlaylistId) && <p>You have no other playlists yet. Create one below.</p>}
         </div>
         <form onSubmit={createAndAdd}><input required maxLength="80" value={name} onChange={(event) => setName(event.target.value)} placeholder="New playlist name" aria-label="New playlist name" /><LoadingButton loading={busy === "create"} loadingLabel="Creating…" disabled={Boolean(busy)}><Plus /> Create and add</LoadingButton></form>
       </div>}
@@ -74,9 +78,9 @@ export function usePlaylists() {
   return context;
 }
 
-export function AddToPlaylistButton({ track, className = "", children }) {
+export function AddToPlaylistButton({ track, className = "", children, excludePlaylistId = "" }) {
   const { user } = useAuth();
   const { openAddToPlaylist } = usePlaylists();
   if (!user || !track || track.access === "private-preview") return null;
-  return <button type="button" className={className} onClick={(event) => { event.stopPropagation(); openAddToPlaylist(track); }} aria-label={`Add ${track.title} to playlist`}><ListPlus />{children}</button>;
+  return <button type="button" className={className} onClick={(event) => { event.stopPropagation(); openAddToPlaylist(track, { excludePlaylistId }); }} aria-label={`Add ${track.title} to playlist`}><ListPlus />{children}</button>;
 }
